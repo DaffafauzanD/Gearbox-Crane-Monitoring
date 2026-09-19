@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pengaturan Monitoring Gearbox</title>
+    <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="CSS_Monitoring.css">
+</head>
+<body>
+    <div class="app-container settings-page">
+        <header class="main-header">
+            <div class="header-title">
+                <h1><i class="fa-solid fa-sliders"></i> Pengaturan</h1>
+                <p>Karawang Plant · <a href="index.html" class="back-link"><i class="fa-solid fa-arrow-left"></i> Kembali ke dashboard</a></p>
+            </div>
+        </header>
+
+        <div class="settings-errors" id="settingsErrors" style="display: none;"></div>
+
+        <!-- PERANGKAT -->
+        <section class="settings-section">
+            <h2><i class="fa-solid fa-satellite-dish"></i> Perangkat (ESP32) yang terdeteksi</h2>
+            <p class="report-hint">Setiap ESP32 yang pernah mengirim data ke broker tercatat di sini, termasuk yang cranenya belum diaktifkan. "Aktifkan" = crane mulai tampil di dashboard dan dipantau alarm. Online/offline, versi firmware, IP dan sinyal WiFi hanya tersedia dari firmware versi baru.</p>
+            <div class="table-wrap">
+                <table class="report-table" id="deviceTable"></table>
+            </div>
+        </section>
+
+        <!-- BATAS DEFAULT -->
+        <section class="settings-section">
+            <h2><i class="fa-solid fa-temperature-half"></i> Batas suhu default</h2>
+            <p class="report-hint">Dipakai semua gearbox, kecuali yang punya batas khusus di daftar crane di bawah.</p>
+            <div class="limit-scale">
+                <span class="scale-low">Suhu rendah</span>
+                <span class="scale-mark">Min</span>
+                <span class="scale-normal">Normal</span>
+                <span class="scale-mark">Batas atas normal</span>
+                <span class="scale-warning">Warning</span>
+                <span class="scale-mark">Max</span>
+                <span class="scale-danger">Danger</span>
+            </div>
+            <div class="default-grid" id="defaultLimits"></div>
+        </section>
+
+        <!-- CRANE -->
+        <section class="settings-section">
+            <h2><i class="fa-solid fa-gears"></i> Crane & gearbox</h2>
+            <p class="report-hint">Kolom batas yang dikosongkan = ikut batas crane (kalau diisi) atau batas default. Angka abu-abu di dalam kolom menunjukkan nilai yang sedang berlaku. Key gearbox (gb01, gb02, ...) harus sama dengan yang dikirim ESP32.</p>
+            <div class="settings-toolbar">
+                <input type="text" id="craneSearch" placeholder="Cari crane..." oninput="renderCranes()">
+                <label class="check-inline"><input type="checkbox" id="onlyInstalled" onchange="renderCranes()"> Hanya yang terpasang</label>
+            </div>
+            <div id="craneList"></div>
+            <details class="add-crane">
+                <summary><i class="fa-solid fa-plus"></i> Tambah crane secara manual</summary>
+                <div class="add-crane-form">
+                    <input type="text" id="newCraneId" placeholder="ID crane (mis. crane-26)" maxlength="40">
+                    <input type="text" id="newCraneArea" placeholder="Area topik MQTT (mis. cbk)" maxlength="20">
+                    <input type="text" id="newCraneName" placeholder="Nama crane" maxlength="120">
+                    <button class="device-btn primary" onclick="addCrane()"><i class="fa-solid fa-plus"></i> Tambah</button>
+                </div>
+                <p class="report-hint">Biasanya tidak perlu: crane baru otomatis muncul di "Perangkat terdeteksi" begitu ESP32-nya mengirim data.</p>
+            </details>
+        </section>
+
+        <!-- RIWAYAT -->
+        <section class="settings-section">
+            <h2><i class="fa-solid fa-clock-rotate-left"></i> Riwayat perubahan</h2>
+            <div id="auditList"></div>
+            <button class="device-btn" onclick="downloadBackup()"><i class="fa-solid fa-download"></i> Download backup pengaturan (JSON)</button>
+        </section>
+    </div>
+
+    <!-- BAR SIMPAN (muncul kalau ada perubahan) -->
+    <div class="save-bar" id="saveBar">
+        <span id="saveBarText"><i class="fa-solid fa-pen"></i> Ada perubahan yang belum disimpan</span>
+        <input type="text" id="changedBy" maxlength="40" placeholder="Nama Anda (untuk riwayat)">
+        <button class="device-btn" onclick="discardChanges()">Batalkan</button>
+        <button class="device-btn primary" id="saveBtn" onclick="saveSettings()"><i class="fa-solid fa-floppy-disk"></i> Simpan</button>
+    </div>
+
+    <script src="alarm_rules.js"></script>
+    <script src="pengaturan.js"></script>
+</body>
+</html>

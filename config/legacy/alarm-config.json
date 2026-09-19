@@ -1,0 +1,23 @@
+{
+  "_petunjuk": [
+    "Batas alarm suhu gearbox. File ini dibaca dashboard, server alarm (server.js), dan export Excel.",
+    "Perubahan langsung berlaku (server membaca ulang otomatis, dashboard ikut ter-update) - tidak perlu restart.",
+    "warning / danger     : status Warning kalau suhu > warning, Danger kalau suhu > danger (°C).",
+    "hysteresis           : alarm suhu baru dianggap selesai kalau suhu turun sejauh ini DI BAWAH batasnya (°C), supaya alarm tidak nyala-mati terus saat suhu mondar-mandir di sekitar batas.",
+    "riseDegrees/riseMinutes : alarm 'kenaikan cepat' kalau suhu naik >= riseDegrees °C dalam riseMinutes menit terakhir.",
+    "offlineMinutes       : sensor dianggap offline kalau tidak ada data selama ini (menit).",
+    "overrides            : batas khusus. Kunci 'crane-01' berlaku untuk semua gearbox crane itu, 'crane-01/gb03' untuk satu gearbox saja (menimpa batas crane). Cukup tulis nilai yang berbeda dari default.",
+    "Kunci yang diawali '_' diabaikan (contoh/catatan)."
+  ],
+  "default": {
+    "warning": 70,
+    "danger": 80,
+    "hysteresis": 2,
+    "riseDegrees": 10,
+    "riseMinutes": 10,
+    "offlineMinutes": 2
+  },
+  "overrides": {
+    "_contoh:crane-01/gb01": { "warning": 75, "danger": 85 }
+  }
+}

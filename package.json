@@ -1,0 +1,19 @@
+{
+  "private": true,
+  "scripts": {
+    "service": "node run-all.js",
+    "start": "node mqtt_logger.js",
+    "web": "node server.js",
+    "simulate": "node simulate_esp32.js",
+    "setup-mqtt": "node scripts/setup-mqtt-auth.js",
+    "export-excel": "node excel_export.js",
+    "vendor": "node scripts/copy-vendor.js",
+    "db-import": "node scripts/import-to-db.js"
+  },
+  "dependencies": {
+    "@fortawesome/fontawesome-free": "^6.7.2",
+    "chart.js": "^4.5.1",
+    "exceljs": "^4.4.0",
+    "mqtt": "^5.15.2"
+  }
+}

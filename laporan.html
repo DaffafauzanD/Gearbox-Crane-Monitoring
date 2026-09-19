@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tren & Laporan Suhu Gearbox</title>
+    <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css">
+    <script src="vendor/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="CSS_Monitoring.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="main-header">
+            <div class="header-title">
+                <h1><i class="fa-solid fa-chart-line"></i> Tren & Laporan Suhu Gearbox</h1>
+                <p>Karawang Plant · <a href="index.html" class="back-link"><i class="fa-solid fa-arrow-left"></i> Kembali ke dashboard</a></p>
+            </div>
+        </header>
+
+        <!-- PERIODE -->
+        <div class="report-toolbar">
+            <div class="period-presets">
+                <button class="period-btn" data-days="1" onclick="setPreset(1)">24 jam</button>
+                <button class="period-btn" data-days="7" onclick="setPreset(7)">7 hari</button>
+                <button class="period-btn" data-days="30" onclick="setPreset(30)">30 hari</button>
+                <button class="period-btn" data-days="90" onclick="setPreset(90)">90 hari</button>
+            </div>
+            <div class="period-custom">
+                <input type="date" id="customFrom" title="Dari tanggal">
+                <span>s/d</span>
+                <input type="date" id="customTo" title="Sampai tanggal">
+                <button class="period-btn" onclick="applyCustomPeriod()">Terapkan</button>
+            </div>
+            <div class="period-label" id="periodLabel"></div>
+        </div>
+
+        <!-- TAB -->
+        <div class="report-tabs">
+            <button class="report-tab" data-tab="trend" onclick="setTab('trend')"><i class="fa-solid fa-chart-area"></i> Tren suhu</button>
+            <button class="report-tab" data-tab="summary" onclick="setTab('summary')"><i class="fa-solid fa-table"></i> Laporan periode</button>
+            <button class="report-tab" data-tab="alarms" onclick="setTab('alarms')"><i class="fa-solid fa-bell"></i> Kejadian alarm</button>
+        </div>
+
+        <!-- TREN -->
+        <section class="report-section" id="tab-trend">
+            <div class="report-controls">
+                <select id="craneSelect" onchange="loadTrend()"></select>
+                <button class="report-download" onclick="downloadTrend()"><i class="fa-solid fa-file-excel"></i> Download Excel</button>
+            </div>
+            <p class="report-hint">Area biru = rentang suhu terendah–tertinggi, garis = rata-rata. Garis putus-putus = batas Min (biru), batas atas normal (kuning), dan Max (merah) dari halaman Pengaturan. Bagian kosong = tidak ada data.</p>
+            <div class="trend-grid" id="trendGrid"></div>
+        </section>
+
+        <!-- LAPORAN PERIODE -->
+        <section class="report-section" id="tab-summary">
+            <div class="report-controls">
+                <button class="report-download" onclick="downloadSummary()"><i class="fa-solid fa-file-excel"></i> Download Excel</button>
+            </div>
+            <div class="summary-cards" id="summaryCards"></div>
+            <p class="report-hint" id="summaryHint"></p>
+            <div class="table-wrap">
+                <table class="report-table" id="summaryTable"></table>
+            </div>
+        </section>
+
+        <!-- KEJADIAN ALARM -->
+        <section class="report-section" id="tab-alarms">
+            <div class="report-controls">
+                <select id="alarmFilter" onchange="renderAlarms()">
+                    <option value="all">Semua alarm</option>
+                    <option value="danger">Danger saja</option>
+                    <option value="temp">Suhu tinggi</option>
+                    <option value="rise">Kenaikan cepat</option>
+                    <option value="low">Suhu rendah</option>
+                    <option value="sensor">Sensor error / offline</option>
+                </select>
+                <button class="report-download" onclick="downloadAlarms()"><i class="fa-solid fa-file-excel"></i> Download Excel</button>
+            </div>
+            <div class="table-wrap">
+                <table class="report-table" id="alarmTable"></table>
+            </div>
+        </section>
+    </div>
+
+    <script src="alarm_rules.js"></script>
+    <script src="laporan.js"></script>
+</body>
+</html>

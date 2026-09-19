@@ -1,0 +1,28 @@
+// ============================================================
+// KONFIGURASI PER ALAT - cuma file ini yang diubah untuk tiap crane
+// ============================================================
+#pragma once
+
+// ---- Identitas crane (WAJIB beda untuk tiap ESP32) ----
+// CRANE_ID harus sama dengan ID crane di halaman Pengaturan dashboard.
+// Topik MQTT otomatis jadi: pabrik/<AREA>/<CRANE_ID>/temp dan .../status
+#define CRANE_ID    "crane-04"
+#define AREA        "cck"      // huruf kecil: twb, cbk, cck, tkg, ...
+#define PLANT_NAME  "TWB"
+
+// ---- Broker MQTT (PC server tempat Mosquitto + dashboard) ----
+#define MQTT_SERVER "192.168.1.9"
+#define MQTT_PORT   1883
+
+// Login MQTT. Biarkan kosong selama "mqttAuth": false di service-config.json.
+// Kalau login diaktifkan: MQTT_USER = CRANE_ID, MQTT_PASS dari mqtt/credentials.json.
+#define MQTT_USER   ""
+#define MQTT_PASS   ""
+
+// ---- Sinkronisasi jam (NTP) ----
+// Jaringan pabrik sering TIDAK bisa ke internet. Kalau begitu, isi NTP_SERVER_1
+// dengan IP PC server dan aktifkan Windows Time sebagai NTP server (lihat README).
+// Tanpa jam yang tersinkron, data tetap terkirim (server pakai jam terima), tapi
+// data yang tertahan saat offline tidak bisa disimpan dengan jam yang benar.
+#define NTP_SERVER_1 "pool.ntp.org"
+#define NTP_SERVER_2 "time.google.com"
