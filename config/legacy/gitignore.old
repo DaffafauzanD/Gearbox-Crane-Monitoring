@@ -1,0 +1,30 @@
+# Library (dipasang dengan npm install)
+node_modules/
+
+# Rahasia - JANGAN di-commit
+mqtt/credentials.json
+mqtt/passwd
+firmware/GBXMQTT/secrets.h
+# firmware versi lama: password WiFi tertulis langsung di dalam kodenya
+/GBXMQTT.ino
+# arsip (bisa berisi secrets.h)
+*.rar
+*.zip
+
+# Pengaturan editor / Claude Code lokal
+.claude/
+
+# Data & hasil yang dibuat otomatis saat sistem jalan
+data/
+logs/
+excel/
+alarms/
+state.json
+service-logs/
+config/settings.json.bak
+config/settings.json.tmp
+firmware-ota/
+
+# File kunci proses
+*.lock
+run-all.children.json
