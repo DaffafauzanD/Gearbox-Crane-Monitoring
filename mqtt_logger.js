@@ -8,9 +8,10 @@
 //   2. Nulis log CSV harian per gearbox di folder "logs/" - ini rekam jejak
 //      PERMANEN semua pembacaan sensor (bukan cuma 8 titik terakhir kayak
 //      di dashboard). Nama file & kolom waktu pakai tanggal/jam WIB.
-//   3. Bikin file Excel 7 hari terakhir per crane di folder "excel/" (diringkas
-//      per menit, lihat excel_export.js) - ini yang diunduh lewat tombol
-//      download di dashboard.
+//   3. Mengompres CSV harian yang sudah lama (> 8 hari) jadi .csv.gz supaya folder
+//      logs/ tidak membengkak (lihat csv_archive.js). File Excel untuk tombol
+//      download di dashboard TIDAK lagi dibuat di sini: dibuat saat diklik oleh
+//      server.js (lihat excel_worker.js).
 //
 // CARA PAKAI:
 //   1. Install Node.js dulu kalau belum ada (https://nodejs.org, pilih versi LTS)
@@ -30,20 +31,23 @@
 const mqtt = require('mqtt');
 const fs = require('fs');
 const path = require('path');
-const { exportCraneExcel, listCranesWithLogs } = require('./excel_export');
+const { compactOldCsv } = require('./csv_archive');
+const { seedHistory } = require('./history_seed');
 const { openDb, StatsWriter } = require('./db');
+const { parseDeviceId } = require('./alarm_rules');
 
 // ---- SESUAIKAN INI KALAU BEDA ----
 // Mosquitto, logger ini, dan HFS jalan di PC yang sama -> cukup localhost.
 const BROKER_URL = process.env.MQTT_URL || 'mqtt://localhost:1883';
 const TOPIC_SUB  = 'pabrik/+/+/temp';           // wildcard, otomatis nangkep semua crane
-const MAX_HISTORY = 8;                          // jumlah titik histori yang disimpan (samain sama dashboard)
+const MAX_HISTORY = 10;                         // jumlah titik histori yang disimpan (samain sama dashboard)
 const STATE_WRITE_INTERVAL = 30000;             // 30 detik - lihat catatan di bawah
-const EXCEL_INTERVAL = 10 * 60 * 1000;          // Excel diperbarui tiap 10 menit
-const EXCEL_DAYS = 7;
+const BACKLOG_DAYS = 7;
+const CSV_KEEP_PLAIN_DAYS = 8;                  // CSV harian yang lebih tua dari ini dikompres (.csv.gz)
+const CSV_COMPACT_INTERVAL = 6 * 60 * 60 * 1000;
 // Timestamp dari ESP32 yang lebih tua dari ini (atau jauh di masa depan) dianggap
 // jam ESP32-nya salah (mis. belum sinkron NTP, masih tahun 1970) -> pakai jam terima.
-const MAX_BACKLOG_MS = EXCEL_DAYS * 24 * 60 * 60 * 1000;
+const MAX_BACKLOG_MS = BACKLOG_DAYS * 24 * 60 * 60 * 1000;
 const MAX_CLOCK_AHEAD_MS = 5 * 60 * 1000;
 const DB_FLUSH_INTERVAL = 30000;                // ringkasan per menit ditulis ke database tiap 30 detik
 const DB_PRUNE_INTERVAL = 6 * 60 * 60 * 1000;   // bersihkan ringkasan per menit yang sudah > 90 hari
@@ -51,20 +55,13 @@ const DB_PRUNE_INTERVAL = 6 * 60 * 60 * 1000;   // bersihkan ringkasan per menit
 
 const STATE_FILE  = path.join(__dirname, 'state.json');
 const CSV_LOG_DIR = path.join(__dirname, 'logs');
-const EXCEL_DIR   = path.join(__dirname, 'excel');
+
 const LOCK_FILE   = path.join(__dirname, 'logger.lock');
 
 // ============================================================
 // CEGAH LOGGER JALAN DOBEL
 // ============================================================
-function isProcessAlive(pid) {
-    try {
-        process.kill(pid, 0);
-        return true;
-    } catch (e) {
-        return e.code === 'EPERM';
-    }
-}
+const { isProcessAlive } = require('./common');
 
 function acquireLock() {
     if (fs.existsSync(LOCK_FILE)) {
@@ -91,7 +88,7 @@ acquireLock();
 // ============================================================
 // WAKTU (WIB)
 // ============================================================
-const WIB_OFFSET_MS = 7 * 60 * 60 * 1000; // WIB = UTC+7, tanpa daylight saving
+const { WIB_OFFSET_MS } = require('./common');
 
 // "2026-09-18T09:02:48.206+07:00" - tetap format ISO (bisa di-parse), tapi jamnya WIB
 function toWibIso(ms) {
@@ -173,6 +170,11 @@ if (fs.existsSync(STATE_FILE)) {
 
 if (!fs.existsSync(CSV_LOG_DIR)) fs.mkdirSync(CSV_LOG_DIR);
 
+// Riwayat chart disusun ulang dari CSV hari ini (lihat history_seed.js): state.json bisa
+// pendek/versi lama/tertinggal kalau logger sempat dimatikan paksa, CSV tidak.
+const seededGearboxes = seedHistory({ logDir: CSV_LOG_DIR, state, maxHistory: MAX_HISTORY });
+if (seededGearboxes) console.log(`[Logger] Riwayat chart disusun ulang dari CSV hari ini untuk ${seededGearboxes} gearbox`);
+
 // ============================================================
 // DATABASE (ringkasan per menit & per jam untuk laporan tren, lihat db.js)
 // ============================================================
@@ -201,7 +203,7 @@ pruneStats();
 setInterval(pruneStats, DB_PRUNE_INTERVAL);
 
 let stateIsDirty = false;
-const excelDirty = new Set(); // crane yang punya data baru sejak Excel terakhir dibuat
+
 
 // ============================================================
 // MQTT
@@ -250,10 +252,13 @@ client.on('message', (topic, payloadBuffer) => {
     }
     if (!data.crane_id || !data.temps) return;
 
-    // Broker cuma mengizinkan tiap ESP32 kirim ke topik crane-nya sendiri (mqtt/acl).
-    // crane_id di dalam payload harus cocok dengan topik itu, kalau tidak, ESP32
-    // crane-01 bisa "mengaku" sebagai crane lain lewat isi pesannya.
-    const topicCraneId = topic.split('/')[2];
+    // Broker cuma mengizinkan tiap ESP32 kirim ke topiknya sendiri (mqtt/acl).
+    // crane_id di dalam payload harus cocok dengan crane di topik itu, kalau tidak, ESP32
+    // crane-01 bisa "mengaku" sebagai crane lain lewat isi pesannya. Segmen topik = ID
+    // perangkat: "crane-01" atau "crane-01_2" (ESP tambahan crane-01) -> cranenya sama-sama
+    // crane-01. Data dari semua ESP32 satu crane digabung di sini (CSV/state per crane+motor).
+    const fromTopic = parseDeviceId(topic.split('/')[2]);
+    const topicCraneId = fromTopic ? fromTopic.craneId : null;
     if (data.crane_id !== topicCraneId) {
         console.warn(`[Logger] crane_id "${data.crane_id}" tidak cocok dengan topik ${topic}, pesan diabaikan.`);
         return;
@@ -293,7 +298,12 @@ client.on('message', (topic, payloadBuffer) => {
 
         gbState.temp = tempVal;
         gbState.lastUpdated = new Date(ms).toISOString();
-        gbState.history.push({ time: timeLabel, temp: tempVal });
+        // 1 titik per MENIT (nilai terakhir menit itu) - sama dengan yang dicatat dashboard.
+        // Dulu tiap pesan (5 detik) jadi satu titik, jadi 8 titik cuma ~40 detik data dan
+        // label jamnya kembar di chart setelah halaman dibuka ulang.
+        const lastPoint = gbState.history[gbState.history.length - 1];
+        if (lastPoint && lastPoint.time === timeLabel) lastPoint.temp = tempVal;
+        else gbState.history.push({ time: timeLabel, temp: tempVal });
         if (gbState.history.length > MAX_HISTORY) gbState.history.shift();
     });
 
@@ -303,7 +313,7 @@ client.on('message', (topic, payloadBuffer) => {
     }
 
     stateIsDirty = true;          // tandain ada perubahan baru, biar interval di bawah yang nulis filenya
-    excelDirty.add(data.crane_id);
+
     console.log(`[Logger] Data diterima & disimpan - ${data.crane_id}: ${Object.keys(data.temps).join(', ')}`);
 });
 
@@ -323,33 +333,18 @@ setInterval(() => {
 }, STATE_WRITE_INTERVAL);
 
 // ============================================================
-// EXCEL 7 HARI (untuk tombol download di dashboard)
+// ARSIP CSV: kompres file harian yang sudah lama
 // ============================================================
-let excelRunning = false;
-
-async function exportDirtyCranes() {
-    if (excelRunning || excelDirty.size === 0) return;
-    excelRunning = true;
+// CSV mentah ~75 MB/hari untuk 25 crane. Yang lebih tua dari CSV_KEEP_PLAIN_DAYS hari tidak
+// akan ditulisi lagi (data backlog ESP32 maksimal 7 hari), jadi aman dikompres jadi .csv.gz
+// (~10x lebih kecil). Isinya tetap utuh & bisa dibaca ulang oleh npm run db-import.
+async function compactCsv() {
     try {
-        for (const craneId of [...excelDirty]) {
-            excelDirty.delete(craneId);
-            try {
-                const out = await exportCraneExcel({ logDir: CSV_LOG_DIR, excelDir: EXCEL_DIR, craneId, days: EXCEL_DAYS });
-                if (out) console.log(`[Logger] Excel ${craneId} diperbarui`);
-            } catch (err) {
-                // mis. file sedang dibuka/diunduh di Windows -> coba lagi di putaran berikutnya
-                excelDirty.add(craneId);
-                console.error(`[Logger] Gagal bikin Excel ${craneId}:`, err.message);
-            }
-        }
-    } finally {
-        excelRunning = false;
+        const r = await compactOldCsv({ logDir: CSV_LOG_DIR, olderThanDays: CSV_KEEP_PLAIN_DAYS });
+        if (r.compressed) console.log(`[Logger] ${r.compressed} file CSV lama dikompres, hemat ${(r.savedBytes / 1048576).toFixed(1)} MB`);
+    } catch (e) {
+        console.error('[Logger] Gagal mengompres CSV lama:', e.message);
     }
 }
-
-// Saat logger baru nyala: pastikan semua crane yang punya log sudah punya Excel terbaru
-listCranesWithLogs(CSV_LOG_DIR).then(ids => {
-    ids.forEach(id => excelDirty.add(id));
-    exportDirtyCranes();
-});
-setInterval(exportDirtyCranes, EXCEL_INTERVAL);
+setTimeout(compactCsv, 60 * 1000); // 1 menit setelah nyala, supaya tidak bersaing dengan start-up
+setInterval(compactCsv, CSV_COMPACT_INTERVAL);

@@ -1,0 +1,65 @@
+[
+ {
+  "at": 1791834576982,
+  "craneId": "crane-30",
+  "rst": "brownout",
+  "ranMs": 674000,
+  "fw": "1.1.0"
+ },
+ {
+  "at": 1791833900051,
+  "craneId": "crane-30",
+  "rst": "listrik-nyala",
+  "ranMs": 720000,
+  "fw": "1.1.0"
+ },
+ {
+  "at": 1791833150270,
+  "craneId": "crane-30",
+  "rst": "listrik-nyala",
+  "ranMs": 2823000,
+  "fw": "1.1.0"
+ },
+ {
+  "at": 1791830316838,
+  "craneId": "crane-30",
+  "rst": "listrik-nyala",
+  "ranMs": 396000,
+  "fw": "1.1.0"
+ },
+ {
+  "at": 1791828538975,
+  "craneId": "crane-30",
+  "rst": "brownout",
+  "ranMs": 116000,
+  "fw": "1.1.0"
+ },
+ {
+  "at": 1791828418520,
+  "craneId": "crane-30",
+  "rst": "listrik-nyala",
+  "ranMs": 20000,
+  "fw": "1.1.0"
+ },
+ {
+  "at": 1791827711435,
+  "craneId": "crane-30",
+  "rst": "listrik-nyala",
+  "ranMs": 25000,
+  "fw": "1.1.0"
+ },
+ {
+  "at": 1791827506282,
+  "craneId": "crane-30",
+  "rst": "brownout",
+  "ranMs": 105000,
+  "fw": "1.1.0"
+ },
+ {
+  "at": 1791826836728,
+  "craneId": "crane-30",
+  "rst": "listrik-nyala",
+  "ranMs": 895000,
+  "fw": "1.1.0"
+ }
+]

@@ -14,6 +14,12 @@
 //
 // Kalau Mosquitto sudah jalan sendiri (mis. sebagai Windows Service), pakai:
 //     node run-all.js --no-broker
+//
+// Mode senyap (dipakai "Monitoring Gearbox.bat"): tambahkan --quiet supaya log TIDAK
+// dicetak ke jendela konsol, hanya ke service-logs/. Ini penting kalau jendelanya
+// dibiarkan terbuka: konsol Windows yang kebanjiran teks, atau yang sempat diklik
+// (QuickEdit), bisa menahan proses sampai ada tombol ditekan.
+//     node run-all.js --quiet
 
 const { spawn, execFileSync } = require('child_process');
 const fs = require('fs');
@@ -24,17 +30,11 @@ const LOG_DIR = path.join(ROOT, 'service-logs');
 const LOCK_FILE = path.join(ROOT, 'run-all.lock');
 const CHILDREN_FILE = path.join(ROOT, 'run-all.children.json');
 const MAX_LOG_BYTES = 5 * 1024 * 1024; // lebih dari ini -> file lama diganti nama jadi .log.1
-const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
+const { WIB_OFFSET_MS } = require('./common');
+const QUIET = process.argv.includes('--quiet'); // tidak mencetak log ke konsol (tetap ditulis ke file)
 
 // ---- cegah run-all jalan dobel (sama seperti logger.lock) ----
-function isProcessAlive(pid) {
-    try {
-        process.kill(pid, 0);
-        return true;
-    } catch (e) {
-        return e.code === 'EPERM';
-    }
-}
+const { isProcessAlive } = require('./common');
 if (fs.existsSync(LOCK_FILE)) {
     const pid = parseInt(fs.readFileSync(LOCK_FILE, 'utf-8'), 10);
     if (pid && pid !== process.pid && isProcessAlive(pid)) {
@@ -83,7 +83,7 @@ function writeLog(name, text) {
 
 function log(name, message) {
     const line = `${stamp()} [${name}] ${message}`;
-    console.log(line);
+    if (!QUIET) console.log(line);
     writeLog(name, line + '\n');
 }
 

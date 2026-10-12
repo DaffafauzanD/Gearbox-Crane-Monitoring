@@ -3,16 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pengaturan Monitoring Gearbox</title>
+    <title>Pengaturan Monitoring Motor</title>
     <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css">
     <link rel="stylesheet" href="CSS_Monitoring.css">
 </head>
 <body>
     <div class="app-container settings-page">
         <header class="main-header">
+            <div class="header-top-row">
+                <a href="index.html" class="back-btn"><i class="fa-solid fa-arrow-left"></i> Kembali ke dashboard</a>
+                <div id="authSlot"></div>
+            </div>
             <div class="header-title">
                 <h1><i class="fa-solid fa-sliders"></i> Pengaturan</h1>
-                <p>Karawang Plant · <a href="index.html" class="back-link"><i class="fa-solid fa-arrow-left"></i> Kembali ke dashboard</a></p>
+                <p>Cibitung Plant</p>
             </div>
         </header>
 
@@ -30,7 +34,7 @@
         <!-- BATAS DEFAULT -->
         <section class="settings-section">
             <h2><i class="fa-solid fa-temperature-half"></i> Batas suhu default</h2>
-            <p class="report-hint">Dipakai semua gearbox, kecuali yang punya batas khusus di daftar crane di bawah.</p>
+            <p class="report-hint">Dipakai semua motor, kecuali yang punya batas khusus di daftar crane di bawah.</p>
             <div class="limit-scale">
                 <span class="scale-low">Suhu rendah</span>
                 <span class="scale-mark">Min</span>
@@ -45,8 +49,14 @@
 
         <!-- CRANE -->
         <section class="settings-section">
-            <h2><i class="fa-solid fa-gears"></i> Crane & gearbox</h2>
-            <p class="report-hint">Kolom batas yang dikosongkan = ikut batas crane (kalau diisi) atau batas default. Angka abu-abu di dalam kolom menunjukkan nilai yang sedang berlaku. Key gearbox (gb01, gb02, ...) harus sama dengan yang dikirim ESP32.</p>
+            <h2><i class="fa-solid fa-gears"></i> Crane & Motor</h2>
+            <p class="report-hint">Kolom batas yang dikosongkan = ikut batas crane (kalau diisi) atau batas default. Angka abu-abu di dalam kolom menunjukkan nilai yang sedang berlaku. Key motor (m1, m2, ...) harus sama dengan yang dikirim ESP32.</p>
+            <p class="report-hint">Firmware OTA di-upload PER CRANE (buka accordion crane-nya masing-masing di bawah) - supaya bisa dicoba di 1 crane dulu sebelum disebar ke yang lain.</p>
+
+            <div class="settings-toolbar" id="otaTriggerToolbar" style="display: none;">
+                <button class="device-btn primary" onclick="triggerOtaAll()"><i class="fa-solid fa-bolt"></i> Update semua crane yang sudah punya firmware ter-upload</button>
+            </div>
+
             <div class="settings-toolbar">
                 <input type="text" id="craneSearch" placeholder="Cari crane..." oninput="renderCranes()">
                 <label class="check-inline"><input type="checkbox" id="onlyInstalled" onchange="renderCranes()"> Hanya yang terpasang</label>
@@ -69,6 +79,8 @@
             <h2><i class="fa-solid fa-clock-rotate-left"></i> Riwayat perubahan</h2>
             <div id="auditList"></div>
             <button class="device-btn" onclick="downloadBackup()"><i class="fa-solid fa-download"></i> Download backup pengaturan (JSON)</button>
+            <!--  di pengaturan.js; server juga menolak akun lain) -->
+            <button class="device-btn danger" id="auditClearBtn" style="display: none;" onclick="clearAudit()"><i class="fa-solid fa-trash"></i> Hapus semua riwayat</button>
         </section>
     </div>
 
@@ -81,6 +93,8 @@
     </div>
 
     <script src="alarm_rules.js"></script>
+    <script src="espmon.js"></script>
     <script src="pengaturan.js"></script>
+    <script src="auth-ui.js"></script>
 </body>
 </html>

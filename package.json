@@ -1,14 +1,19 @@
 {
   "private": true,
   "scripts": {
-    "service": "node run-all.js",
+    "service": "node scripts/start-service.js",
+    "service-fg": "node run-all.js",
+    "stop-service": "node scripts/stop-service.js",
     "start": "node mqtt_logger.js",
     "web": "node server.js",
     "simulate": "node simulate_esp32.js",
     "setup-mqtt": "node scripts/setup-mqtt-auth.js",
+    "setup-accounts": "node scripts/setup-accounts.js",
+    "publish-ota": "node publish-ota.js",
     "export-excel": "node excel_export.js",
     "vendor": "node scripts/copy-vendor.js",
-    "db-import": "node scripts/import-to-db.js"
+    "db-import": "node scripts/import-to-db.js",
+    "test": "node tests/multinode.js && node tests/smoke.js"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^6.7.2",

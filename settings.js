@@ -14,11 +14,13 @@
 //       "installed": true,               <- false = "Belum Terpasang" di dashboard
 //       "limits": { },                   <- batas khusus crane ini (opsional)
 //       "gearboxes": [
-//         { "key": "gb01", "name": "GB 01 - ...", "sparepart": "", "limits": { } }
+//         { "key": "gb01", "name": "GB 01 - ...", "sparepart": "", "insulationClass": "B", "limits": { },
+//           "enabled": false }             <- opsional; false = sensor/motor ini DIMATIKAN (tidak ada alarm,
+//                                             tampil "nonaktif"); tidak ditulis = aktif
 //       ] }
 //   ]
 // }
-// "key" gearbox (gb01, gb02, ...) harus sama dengan key yang dikirim ESP32.
+// "key" motor (m1, m2, ...) harus sama dengan key yang dikirim ESP32.
 
 const fs = require('fs');
 const path = require('path');
@@ -59,18 +61,21 @@ function validate(settings) {
         if (typeof crane.location !== 'string' || crane.location.length > 80) problems.push(`${label}: lokasi maks 80 karakter`);
         if (typeof crane.area !== 'string' || !/^[a-z0-9-]{1,20}$/i.test(crane.area)) problems.push(`${label}: area (bagian topik MQTT) hanya boleh huruf, angka, dan "-"`);
         if (typeof crane.installed !== 'boolean') problems.push(`${label}: status terpasang harus true/false`);
+        if (crane.insulationClass !== undefined && (typeof crane.insulationClass !== 'string' || crane.insulationClass.length > 10)) problems.push(`${label}: kode class maks 10 karakter`);
         checkLimitKeys(crane.limits, label);
-        if (!Array.isArray(crane.gearboxes) || crane.gearboxes.length === 0) return problems.push(`${label}: minimal 1 gearbox`);
+        if (!Array.isArray(crane.gearboxes) || crane.gearboxes.length === 0) return problems.push(`${label}: minimal 1 motor`);
 
         const keys = new Set();
         crane.gearboxes.forEach((gb, j) => {
-            const gbLabel = `${label}/${gb && gb.key ? gb.key : 'gearbox ke-' + (j + 1)}`;
+            const gbLabel = `${label}/${gb && gb.key ? gb.key : 'motor ke-' + (j + 1)}`;
             if (!gb || typeof gb !== 'object') return problems.push(`${gbLabel}: data tidak valid`);
-            if (typeof gb.key !== 'string' || !/^gb\d{1,3}$/.test(gb.key)) problems.push(`${gbLabel}: key harus berbentuk gb01, gb02, ...`);
+            if (typeof gb.key !== 'string' || !/^[a-z]{1,8}\d{1,3}$/.test(gb.key)) problems.push(`${gbLabel}: key harus berbentuk m1, m2, ...`);
             else if (keys.has(gb.key)) problems.push(`${gbLabel}: key dipakai dua kali`);
             keys.add(gb.key);
-            if (typeof gb.name !== 'string' || !gb.name.trim() || gb.name.length > 80) problems.push(`${gbLabel}: nama gearbox wajib diisi (maks 80 karakter)`);
+            if (typeof gb.name !== 'string' || !gb.name.trim() || gb.name.length > 80) problems.push(`${gbLabel}: nama motor wajib diisi (maks 80 karakter)`);
             if (gb.sparepart !== undefined && (typeof gb.sparepart !== 'string' || gb.sparepart.length > 80)) problems.push(`${gbLabel}: kode sparepart maks 80 karakter`);
+            if (gb.insulationClass !== undefined && (typeof gb.insulationClass !== 'string' || gb.insulationClass.length > 10)) problems.push(`${gbLabel}: kode class maks 10 karakter`);
+            if (gb.enabled !== undefined && typeof gb.enabled !== 'boolean') problems.push(`${gbLabel}: status aktif harus true/false`);
             checkLimitKeys(gb.limits, gbLabel);
             // Batas akhir (default + crane + gearbox) harus masuk akal
             problems.push(...AlarmRules.validateLimits(AlarmRules.getLimits(settings, crane.id, gb.key), gbLabel));
@@ -94,7 +99,7 @@ function save(settings, file = SETTINGS_FILE) {
 function diff(before, after) {
     const changes = [];
     const fmt = v => (v === undefined || v === null || v === '' ? '(kosong)' : v === true ? 'ya' : v === false ? 'tidak' : String(v));
-    const FIELD = { name: 'nama', location: 'lokasi', area: 'area', installed: 'terpasang', sparepart: 'sparepart' };
+    const FIELD = { name: 'nama', location: 'lokasi', area: 'area', installed: 'terpasang', sparepart: 'sparepart', insulationClass: 'kode class' };
     const LIMIT = { low: 'Min', warning: 'batas atas normal', danger: 'Max', hysteresis: 'hysteresis', riseDegrees: 'kenaikan cepat (°C)', riseMinutes: 'kenaikan cepat (menit)', offlineMinutes: 'offline (menit)' };
     const limitDiff = (target, a = {}, b = {}) => {
         new Set([...Object.keys(a), ...Object.keys(b)]).forEach(k => {
@@ -113,12 +118,13 @@ function diff(before, after) {
         const oldGbs = new Map(old.gearboxes.map(g => [g.key, g]));
         c.gearboxes.forEach(g => {
             const og = oldGbs.get(g.key);
-            if (!og) return changes.push(`${id}/${g.key} · gearbox baru ditambahkan (${g.name})`);
-            ['name', 'sparepart'].forEach(f => { if ((og[f] || '') !== (g[f] || '')) changes.push(`${id}/${g.key} · ${FIELD[f]}: ${fmt(og[f])} → ${fmt(g[f])}`); });
+            if (!og) return changes.push(`${id}/${g.key} · motor baru ditambahkan (${g.name})`);
+            ['name', 'sparepart', 'insulationClass'].forEach(f => { if ((og[f] || '') !== (g[f] || '')) changes.push(`${id}/${g.key} · ${FIELD[f]}: ${fmt(og[f])} → ${fmt(g[f])}`); });
+            if ((og.enabled !== false) !== (g.enabled !== false)) changes.push(`${id}/${g.key} · sensor: ${og.enabled !== false ? 'aktif' : 'nonaktif'} → ${g.enabled !== false ? 'aktif' : 'nonaktif'}`);
             limitDiff(`${id}/${g.key}`, og.limits, g.limits);
             oldGbs.delete(g.key);
         });
-        oldGbs.forEach(g => changes.push(`${id}/${g.key} · gearbox dihapus (${g.name})`));
+        oldGbs.forEach(g => changes.push(`${id}/${g.key} · motor dihapus (${g.name})`));
     });
     beforeCranes.forEach((c, id) => { if (!afterCranes.has(id)) changes.push(`${id} · crane dihapus (${c.name})`); });
     return changes;

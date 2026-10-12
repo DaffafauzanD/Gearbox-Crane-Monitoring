@@ -1,0 +1,333 @@
+﻿<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Status Sistem - Monitoring Motor</title>
+<!-- Halaman ini BERDIRI SENDIRI (tanpa CSS_Monitoring.css / vendor/...) supaya ringan,
+     tapi TETAP wajib login sebagai maintenance (lihat isPublicPath di server.js -
+     cuma api/health yang publik, untuk alat monitoring eksternal seperti Zabbix yang
+     memanggil API-nya langsung, bukan lewat halaman ini). -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background: #0b1220; color: #f8fafc; padding: 20px 16px 60px; }
+    .wrap { max-width: 1280px; margin: 0 auto; }
+
+    /* ---- Top bar: tombol kembali + pill jam + pill terakhir dicek ---- */
+    .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 18px;
+    }
+    .back-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #1e293b;
+        border: 1px solid #334155;
+        color: #cbd5e1;
+        text-decoration: none;
+        font-size: 0.82rem;
+        font-weight: 600;
+        padding: 8px 14px;
+        border-radius: 8px;
+        transition: border-color 0.15s, color 0.15s;
+    }
+    .back-btn:hover { border-color: #38bdf8; color: #38bdf8; }
+
+    .topbar-pills { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        background: rgba(148, 163, 184, 0.08);
+        border: 1px solid #334155;
+        color: #cbd5e1;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+    .pill i { font-size: 0.72rem; color: #38bdf8; line-height: 1; }
+    .pill.pill-checked i { color: #64748b; }
+
+    header { text-align: center; margin-bottom: 22px; }
+    h1 { font-size: 1.35rem; font-weight: 700; margin-bottom: 4px; }
+    .sub { font-size: 0.82rem; color: #94a3b8; }
+
+    .overall {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        justify-content: center;
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 10px;
+        padding: 12px;
+        margin-bottom: 20px;
+        font-weight: 700;
+        font-size: 0.95rem;
+    }
+
+    .section-title {
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        text-align: center;
+        color: #64748b;
+        margin: 24px 2px 10px;
+    }
+
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+    .card {
+        background: #141d33;
+        border: 1px solid #263349;
+        border-radius: 12px;
+        padding: 18px;
+        transition: border-color 0.15s;
+    }
+    .card:hover { border-color: #334155; }
+    .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .card-title { font-weight: 700; font-size: 0.95rem; }
+    .rows div { display: flex; justify-content: space-between; gap: 10px; font-size: 0.8rem; color: #94a3b8; padding: 3px 0; }
+    .rows span:last-child { color: #cbd5e1; font-weight: 600; text-align: right; }
+    .addr-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(56, 189, 248, 0.1);
+        border: 1px solid rgba(56, 189, 248, 0.35);
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 0.74rem;
+        font-weight: 700;
+        color: #7dd3fc;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0.01em;
+    }
+    .addr-pill i { font-size: 0.68rem; color: #38bdf8; line-height: 1; }
+
+    .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+    .dot-up { background: #22c55e; box-shadow: 0 0 8px #22c55e99; }
+    .dot-down { background: #ef4444; box-shadow: 0 0 8px #ef444499; }
+    .dot-warn { background: #f59e0b; box-shadow: 0 0 8px #f59e0b99; }
+
+    /* ---- Ringkasan crane terpasang ---- */
+    .devices-summary {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        gap: 16px;
+        background: #141d33;
+        border: 1px solid #263349;
+        border-radius: 12px;
+        padding: 18px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+    }
+    .devices-big { font-size: 2rem; font-weight: 800; line-height: 1; }
+    .devices-label { font-size: 0.8rem; color: #94a3b8; margin-top: 4px; }
+
+    /* ---- Daftar crane: tabel asli - header & sel dijamin sejajar per kolom ---- */
+    .table-wrap { overflow-x: auto; border: 1px solid #263349; border-radius: 12px; }
+    .device-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 0.8rem; }
+    .device-table col.col-no { width: 60px; }
+    .device-table col.col-name { width: 17%; }
+    .device-table col.col-loc { width: 7%; }
+    .device-table col.col-id { width: 7%; }
+    .device-table col.col-topic { width: 15%; }
+    .device-table col.col-mac { width: 13%; }
+    .device-table col.col-fw { width: 6%; }
+    .device-table col.col-sig { width: 8%; }
+    .device-table col.col-ap { width: 13%; }
+    .device-table col.col-ago { width: 8%; }
+    .device-table col.col-mon { width: 6%; }
+
+    .device-table thead th {
+        background: #101a30;
+        color: #f8fafc;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        text-align: center;
+        padding: 12px 8px;
+        border-bottom: 1px solid #263349;
+        white-space: nowrap;
+    }
+    .device-table thead th.num, .device-table thead th.center, .device-table thead th.hl { text-align: center; }
+    .device-table thead th.end { text-align: center; }
+
+    .device-table tbody td {
+        text-align: center; /* semua isi kolom rata tengah, sejajar dengan judul kolom */
+        padding: 11px 8px;
+        border-bottom: 1px solid #1c2740;
+        color: #cbd5e1;
+        vertical-align: middle;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 0; /* paksa text-overflow bekerja di dalam lebar kolom yang sudah ditentukan col */
+    }
+
+    /* MAC & access point selalu tampil UTUH (17 karakter), tidak dipotong titik-titik */
+    .device-table td.col-mac, .device-table td.col-ap { overflow: visible; text-overflow: clip; }
+    .device-table td.col-mac code, .device-table td.col-ap code { font-size: 0.7rem; padding: 2px 5px; letter-spacing: 0; }
+    .device-table tbody tr:last-child td { border-bottom: none; }
+    .device-table tbody tr:hover td { background: #141d33; }
+
+    .device-table td.col-no { text-align: center; color: #64748b; font-weight: 700; border-left: 3px solid transparent; padding-left: 6px; padding-right: 6px; }
+    .device-table tr.is-reporting td.col-no { border-left-color: #22c55e; }
+    .device-table tr.is-offline td.col-no { border-left-color: #ef4444; }
+
+    .device-name-cell { display: flex; align-items: center; justify-content: center; gap: 9px; min-width: 0; }
+    .device-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+    .device-name { color: #f1f5f9; font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+
+    .device-location:empty::before { content: '\2013'; color: #475569; }
+
+    .device-table code {
+        background: #0b1220; border: 1px solid #263349; padding: 2px 7px; border-radius: 4px;
+        color: #7dd3fc; font-size: 0.72rem;
+    }
+
+    /* Riwayat (pindah AP & restart): tinggi tetap ±5 baris, sisanya digulir di dalam kotak - halaman tidak memanjang */
+    .hist-scroll { max-height: 290px; overflow-y: auto; }
+    .hist-scroll thead th { position: sticky; top: 0; z-index: 1; }
+    .hist-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: -4px 2px 8px; min-height: 28px; }
+    .hist-count { font-size: 0.74rem; color: #64748b; }
+    .hist-clear {
+        display: inline-flex; align-items: center; gap: 6px; background: #141d33; color: #f87171;
+        border: 1px solid #3b2230; border-radius: 8px; padding: 5px 11px; font-size: 0.74rem; font-weight: 600;
+        cursor: pointer; font-family: inherit;
+    }
+    .hist-clear:hover { background: #1c2740; border-color: #ef4444; }
+    .hist-clear:disabled { opacity: 0.4; cursor: default; }
+    .device-table td.col-fw { overflow: visible; text-overflow: clip; line-height: 1.25; }
+    .ap-clickable { cursor: pointer; }
+    .ap-clickable:hover code { border-color: #38bdf8; }
+    .ap-pop { position: fixed; inset: 0; z-index: 3000; background: rgba(2, 6, 14, 0.72); display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .ap-pop-box { width: min(620px, 100%); max-height: 90vh; overflow: auto; background: #0b1220; border: 1px solid #263349; border-radius: 12px; box-shadow: 0 24px 60px rgba(0,0,0,0.55); }
+    .ap-pop-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 16px; background: #101a30; border-bottom: 1px solid #263349; color: #f1f5f9; font-size: 0.88rem; }
+    .ap-pop-head code { background: #0b1220; border: 1px solid #263349; border-radius: 4px; padding: 1px 7px; color: #7dd3fc; font-size: 0.72rem; }
+    .ap-pop-close { background: #141d33; color: #cbd5e1; border: 1px solid #263349; border-radius: 6px; padding: 4px 9px; cursor: pointer; }
+    .ap-pop-note { margin: 0; padding: 10px 16px; font-size: 0.74rem; color: #94a3b8; }
+    .ap-pop-table { table-layout: auto; }
+    .ap-pop-table tbody td { max-width: none; overflow: visible; text-overflow: clip; }
+    .ap-tag { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; font-size: 0.64rem; font-weight: 600; }
+    .ap-tag--now { color: #4ade80; background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.35); }
+    .ap-tag--cand { color: #7dd3fc; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); }
+    .ap-cand { display: block; font-size: 0.64rem; color: #64748b; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; }
+    .ap-cand i { color: #38bdf8; margin-right: 3px; }
+    .ap-why { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 0.7rem; font-weight: 600; border: 1px solid transparent; }
+    .ap-why--roaming { color: #4ade80; background: rgba(34, 197, 94, 0.10); border-color: rgba(34, 197, 94, 0.35); }
+    .ap-why--ulang { color: #fbbf24; background: rgba(245, 158, 11, 0.10); border-color: rgba(245, 158, 11, 0.35); }
+    .ap-why--boot { color: #7dd3fc; background: rgba(56, 189, 248, 0.10); border-color: rgba(56, 189, 248, 0.35); }
+    .ap-why--none { color: #64748b; }
+    .ap-why--bad { color: #f87171; background: rgba(239, 68, 68, 0.10); border-color: rgba(239, 68, 68, 0.35); }
+    .ap-stay { display: block; font-size: 0.64rem; color: #64748b; margin-top: 3px; }
+    .ap-table tbody td.ap-arrow-to code { color: #4ade80; }
+    .ap-table tbody td.ap-arrow-from code { color: #94a3b8; }
+    .device-signal { display: inline-flex; align-items: center; gap: 6px; }
+    .device-signal i { font-size: 0.75rem; line-height: 1; }
+
+    .device-table td.col-ago { text-align: center; color: #64748b; }
+    .device-table tr.is-reporting td.col-ago { color: #4ade80; font-weight: 600; }
+
+    .devices-empty { font-size: 0.8rem; color: #64748b; text-align: center; padding: 24px; }
+
+    .footer { text-align: center; font-size: 0.75rem; color: #64748b; margin-top: 24px; }
+    .error-box { background: #7f1d1d33; border: 1px solid #ef444455; color: #fca5a5; border-radius: 8px; padding: 12px; font-size: 0.85rem; text-align: center; margin-bottom: 16px; display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+    <div class="topbar">
+        <a class="back-btn" href="index.html"><i class="fa-solid fa-arrow-left"></i> Kembali ke dashboard</a>
+        <div class="topbar-pills">
+            <span class="pill" id="liveClock"><i class="fa-solid fa-clock"></i> --:--:--</span>
+            <span class="pill pill-checked" id="lastChecked"><i class="fa-solid fa-rotate"></i> Memeriksa...</span>
+        </div>
+    </div>
+
+    <header>
+        <h1><i class="fa-solid fa-gear"></i> Status Sistem Monitoring Motor</h1>
+        <p class="sub">Broker, logger &amp; web server &mdash; dicek ulang tiap 5 detik</p>
+    </header>
+
+    <div class="error-box" id="errorBox">Tidak bisa menghubungi server.</div>
+    <div class="overall" id="overallBox">Memeriksa...</div>
+
+    <div class="cards">
+        <div class="card">
+            <div class="card-head"><span class="dot" id="dotBroker"></span><span class="card-title">Broker MQTT</span></div>
+            <div class="rows" id="rowsBroker"></div>
+        </div>
+        <div class="card">
+            <div class="card-head"><span class="dot" id="dotLogger"></span><span class="card-title">Logger</span></div>
+            <div class="rows" id="rowsLogger"></div>
+        </div>
+        <div class="card">
+            <div class="card-head"><span class="dot" id="dotWeb"></span><span class="card-title">Web server</span></div>
+            <div class="rows" id="rowsWeb"></div>
+        </div>
+    </div>
+
+    <div class="section-title">Crane terpasang</div>
+    <div class="devices-summary">
+        <div>
+            <div class="devices-big" id="devicesBig">-/-</div>
+            <div class="devices-label" id="devicesLabel">mengirim data dalam batas offline</div>
+        </div>
+    </div>
+    <div class="table-wrap">
+        <table class="device-table">
+            <colgroup>
+                <col class="col-no"><col class="col-name"><col class="col-loc"><col class="col-id">
+                <col class="col-topic"><col class="col-mac"><col class="col-fw"><col class="col-sig"><col class="col-ap"><col class="col-ago"><col class="col-mon">
+            </colgroup>
+            <thead id="deviceTableHead">
+                <tr>
+                    <th class="num">No</th><th class="hl">Nama Crane</th><th class="hl">Lokasi</th><th>ID Crane</th>
+                    <th class="hl">Topik MQTT</th><th>MAC Address</th><th class="center">Firmware</th><th class="center">Sinyal</th><th>Access Point</th><th class="end">Data Terakhir</th><th class="center">Serial</th>
+                </tr>
+            </thead>
+            <tbody id="devicesList"></tbody>
+        </table>
+    </div>
+
+    <div class="section-title" style="margin-top:28px">Riwayat pindah access point</div>
+    <div class="hist-bar"><span class="hist-count" id="apCount"></span><button type="button" class="hist-clear" id="apClearBtn" onclick="clearHistory('ap')"><i class="fa-solid fa-trash"></i> Hapus riwayat</button></div>
+    <div class="table-wrap hist-scroll">
+        <table class="device-table ap-table">
+            <colgroup><col style="width:15%"><col style="width:22%"><col style="width:15%"><col style="width:15%"><col style="width:11%"><col style="width:22%"></colgroup>
+            <thead><tr><th>Waktu</th><th class="hl">Crane</th><th>Dari AP</th><th>Ke AP</th><th class="center">Sinyal baru</th><th>Alasan</th></tr></thead>
+            <tbody id="apChangesList"></tbody>
+        </table>
+    </div>
+
+    <div class="section-title" style="margin-top:28px">Riwayat restart alat</div>
+    <div class="hist-bar"><span class="hist-count" id="restartCount"></span><button type="button" class="hist-clear" id="restartClearBtn" onclick="clearHistory('restart')"><i class="fa-solid fa-trash"></i> Hapus riwayat</button></div>
+    <div class="table-wrap hist-scroll">
+        <table class="device-table ap-table">
+            <colgroup><col style="width:18%"><col style="width:26%"><col style="width:30%"><col style="width:26%"></colgroup>
+            <thead><tr><th>Waktu</th><th class="hl">Crane</th><th>Penyebab restart</th><th>Sempat menyala</th></tr></thead>
+            <tbody id="restartList"></tbody>
+        </table>
+    </div>
+
+    <p class="footer"> Maintenance Gacooooooooorrrrrrr</p>
+</div>
+
+<script src="espmon.js"></script>
+<script src="status.js"></script>
+</body>
+</html>

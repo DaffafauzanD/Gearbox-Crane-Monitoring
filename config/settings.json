@@ -1,869 +1,858 @@
 {
-  "revision": 6,
+  "revision": 165,
   "defaults": {
-    "low": 15,
-    "warning": 70,
-    "danger": 80,
+    "low": 25,
+    "warning": 85,
+    "danger": 100,
     "hysteresis": 2,
     "riseDegrees": 10,
-    "riseMinutes": 10,
-    "offlineMinutes": 2
+    "riseMinutes": 3,
+    "offlineMinutes": 3
   },
   "cranes": [
     {
       "id": "crane-01",
-      "name": "1. Crane 15 Ton Produksi - TWB",
-      "location": "Plant TWB",
-      "area": "twb",
-      "installed": true,
+      "name": "NIPPON HOIST 16 T SL1",
+      "location": "Plant CCC",
+      "area": "ccc",
+      "installed": false,
       "gearboxes": [
         {
-          "key": "gb01",
-          "name": "GB 01 - Timer Travel",
-          "sparepart": "",
-          "limits": {
-            "low": 20,
-            "warning": 60,
-            "danger": 98
-          }
+          "key": "m1",
+          "name": "Motor 1 - Long Travel S1",
+          "sparepart": "MTRDMG01"
         },
         {
-          "key": "gb02",
-          "name": "GB 02 - West Travel",
-          "sparepart": ""
+          "key": "m2",
+          "name": "Motor 2 - Long Travel S2",
+          "sparepart": "MTRDMG02"
         },
         {
-          "key": "gb03",
-          "name": "GB 03 - South Travel",
-          "sparepart": ""
+          "key": "m3",
+          "name": "Motor 3 - East West Travel S1",
+          "sparepart": "MTRDMG03"
         },
         {
-          "key": "gb04",
-          "name": "GB 04 - North Travel",
-          "sparepart": ""
+          "key": "m4",
+          "name": "Motor 4 - East West Travel S2",
+          "sparepart": "MTRDMG04"
         },
         {
-          "key": "gb05",
-          "name": "GB 05 - Up and Down Travel",
-          "sparepart": ""
+          "key": "m5",
+          "name": "Motor 5 - Up and Down S1",
+          "sparepart": "MTRDMG05",
+          "limits": {},
+          "insulationClass": ""
         }
-      ]
+      ],
+      "limits": {
+        "warning": 85,
+        "low": 15,
+        "danger": 100
+      },
+      "insulationClass": "B"
     },
     {
       "id": "crane-02",
-      "name": "2. Crane Double Hoist 10/20 Ton Produksi - CB1",
-      "location": "Plant CBK",
-      "area": "cbk",
-      "installed": true,
+      "name": "NIPPON HOIST 10 T SL2",
+      "location": "Plant CCC",
+      "area": "ccc",
+      "installed": false,
       "gearboxes": [
         {
-          "key": "gb01",
-          "name": "GB 01 - Main Hoist",
-          "sparepart": ""
+          "key": "m1",
+          "name": "Motor 1 - Main Hoist",
+          "sparepart": "MTRDMG01"
         },
         {
-          "key": "gb02",
-          "name": "GB 02 - Aux Hoist",
-          "sparepart": ""
+          "key": "m2",
+          "name": "Motor 2 - Aux Hoist",
+          "sparepart": "MTRDMG02"
         },
         {
-          "key": "gb03",
-          "name": "GB 03 - Trolley",
-          "sparepart": ""
+          "key": "m3",
+          "name": "Motor 3 - Trolley",
+          "sparepart": "MTRDMG03"
         },
         {
-          "key": "gb04",
-          "name": "GB 04 - Long Travel A",
-          "sparepart": ""
+          "key": "m4",
+          "name": "Motor 4 - Long Travel A",
+          "sparepart": "MTRDMG04"
         },
         {
-          "key": "gb05",
-          "name": "GB 05 - Long Travel B",
-          "sparepart": ""
+          "key": "m5",
+          "name": "Motor 5 - Long Travel B",
+          "sparepart": "MTRDMG05"
         }
-      ]
+      ],
+      "limits": {
+        "low": 15,
+        "warning": 95,
+        "danger": 120
+      },
+      "insulationClass": "H"
     },
     {
       "id": "crane-03",
-      "name": "3. Crane Double Hoist 10/20 Ton Produksi - CB2",
-      "location": "Plant CBK",
-      "area": "cbk",
-      "installed": true,
+      "name": "NIPPON HOIST 10 T SL3",
+      "location": "Plant CCC",
+      "area": "ccc",
+      "installed": false,
       "gearboxes": [
         {
-          "key": "gb01",
-          "name": "GB 01 - Main Hoist",
-          "sparepart": ""
+          "key": "m1",
+          "name": "Motor 1 - Main Hoist",
+          "sparepart": "MTRDMG01"
         },
         {
-          "key": "gb02",
-          "name": "GB 02 - Aux Hoist",
-          "sparepart": ""
+          "key": "m2",
+          "name": "Motor 2 - Aux Hoist",
+          "sparepart": "MTRDMG02"
         },
         {
-          "key": "gb03",
-          "name": "GB 03 - Trolley",
-          "sparepart": ""
+          "key": "m3",
+          "name": "Motor 3 - Trolley",
+          "sparepart": "MTRDMG03"
         },
         {
-          "key": "gb04",
-          "name": "GB 04 - Long Travel A",
-          "sparepart": ""
+          "key": "m4",
+          "name": "Motor 4 - Long Travel A",
+          "sparepart": "MTRDMG04"
         },
         {
-          "key": "gb05",
-          "name": "GB 05 - Long Travel B",
-          "sparepart": ""
+          "key": "m5",
+          "name": "Motor 5 - Long Travel B",
+          "sparepart": "MTRDMG05"
         }
-      ]
+      ],
+      "limits": {
+        "low": 15,
+        "warning": 55,
+        "danger": 75
+      },
+      "insulationClass": "A"
     },
     {
       "id": "crane-04",
-      "name": "4. Crane 15 Ton - MCY Tengah",
-      "location": "Plant CCK",
-      "area": "cck",
-      "installed": true,
+      "name": "MHE DEMAG 16 T SL4",
+      "location": "Plant CCC",
+      "area": "ccc",
+      "installed": false,
       "gearboxes": [
         {
-          "key": "gb01",
-          "name": "GB 01 - Main Hoist",
-          "sparepart": ""
+          "key": "m1",
+          "name": "Motor 1 - Main Hoist",
+          "sparepart": "MTRDMG01"
         },
         {
-          "key": "gb02",
-          "name": "GB 02 - Aux Hoist",
-          "sparepart": ""
+          "key": "m2",
+          "name": "Motor 2 - Aux Hoist",
+          "sparepart": "MTRDMG01"
         },
         {
-          "key": "gb03",
-          "name": "GB 03 - Trolley",
-          "sparepart": ""
+          "key": "m3",
+          "name": "Motor 3 - Trolley",
+          "sparepart": "MTRDMG01"
         },
         {
-          "key": "gb04",
-          "name": "GB 04 - Long Travel A",
-          "sparepart": ""
+          "key": "m4",
+          "name": "Motor 4 - Long Travel A",
+          "sparepart": "MTRDMG01"
         },
         {
-          "key": "gb05",
-          "name": "GB 05 - Long Travel B",
-          "sparepart": ""
+          "key": "m5",
+          "name": "Motor 5 - Long Travel B",
+          "sparepart": "MTRDMG01"
         }
-      ]
+      ],
+      "limits": {
+        "low": 15,
+        "warning": 85,
+        "danger": 100
+      },
+      "insulationClass": "B"
     },
     {
       "id": "crane-05",
-      "name": "5. Crane 3 Ton (Semy Gantry) - Produksi GS",
-      "location": "Plant CCK",
-      "area": "cck",
+      "name": "MHE DEMAG 16 T SL5",
+      "location": "Plant CCC",
+      "area": "ccc",
       "installed": false,
       "gearboxes": [
         {
-          "key": "gb01",
-          "name": "GB 01 - Main Hoist",
+          "key": "m1",
+          "name": "Motor 1 - Long Travel",
+          "sparepart": "ZBA 100"
+        },
+        {
+          "key": "m2",
+          "name": "Motor 2 - Long Travel",
+          "sparepart": "ZBA 100"
+        },
+        {
+          "key": "m3",
+          "name": "Motor 3 - Cross Travel",
           "sparepart": ""
         },
         {
-          "key": "gb02",
-          "name": "GB 02 - Aux Hoist",
-          "sparepart": ""
+          "key": "m4",
+          "name": "Motor 4 - Hoist Speed 1",
+          "sparepart": "KBA 90"
         },
         {
-          "key": "gb03",
-          "name": "GB 03 - Trolley",
-          "sparepart": ""
-        },
-        {
-          "key": "gb04",
-          "name": "GB 04 - Long Travel A",
-          "sparepart": ""
-        },
-        {
-          "key": "gb05",
-          "name": "GB 05 - Long Travel B",
-          "sparepart": ""
+          "key": "m5",
+          "name": "Motor 5 - Hoist Speed 2",
+          "sparepart": "KBH 160"
         }
-      ]
+      ],
+      "limits": {
+        "low": 15,
+        "warning": 85,
+        "danger": 105
+      },
+      "insulationClass": "F"
     },
     {
       "id": "crane-06",
-      "name": "6. Crane 5 Ton PDY Hoop",
-      "location": "Plant CCK",
-      "area": "cck",
+      "name": "MHE DEMAG 10/20 T SL6",
+      "location": "Plant CCC",
+      "area": "ccc",
       "installed": false,
       "gearboxes": [
         {
-          "key": "gb01",
-          "name": "GB 01 - Main Hoist",
+          "key": "m1",
+          "name": "Motor 1 - Main Hoist",
           "sparepart": ""
         },
         {
-          "key": "gb02",
-          "name": "GB 02 - Aux Hoist",
+          "key": "m2",
+          "name": "Motor 2 - Aux Hoist",
           "sparepart": ""
         },
         {
-          "key": "gb03",
-          "name": "GB 03 - Trolley",
+          "key": "m3",
+          "name": "Motor 3 - Trolley",
           "sparepart": ""
         },
         {
-          "key": "gb04",
-          "name": "GB 04 - Long Travel A",
+          "key": "m4",
+          "name": "Motor 4 - Long Travel A",
           "sparepart": ""
         },
         {
-          "key": "gb05",
-          "name": "GB 05 - Long Travel B",
+          "key": "m5",
+          "name": "Motor 5 - Long Travel B",
           "sparepart": ""
         }
       ]
     },
     {
       "id": "crane-07",
-      "name": "7. Crane 25 Ton - MCY TKG",
-      "location": "Plant TKG",
-      "area": "tkg",
+      "name": "MHE DEMAG 15 T SL7",
+      "location": "Plant CCC",
+      "area": "ccc",
       "installed": false,
       "gearboxes": [
         {
-          "key": "gb01",
-          "name": "GB 01 - Main Hoist",
+          "key": "m1",
+          "name": "Motor 1 - Main Hoist",
           "sparepart": ""
         },
         {
-          "key": "gb02",
-          "name": "GB 02 - Aux Hoist",
+          "key": "m2",
+          "name": "Motor 2 - Aux Hoist",
           "sparepart": ""
         },
         {
-          "key": "gb03",
-          "name": "GB 03 - Trolley",
+          "key": "m3",
+          "name": "Motor 3 - Trolley",
           "sparepart": ""
         },
         {
-          "key": "gb04",
-          "name": "GB 04 - Long Travel A",
+          "key": "m4",
+          "name": "Motor 4 - Long Travel A",
           "sparepart": ""
         },
         {
-          "key": "gb05",
-          "name": "GB 05 - Long Travel B",
+          "key": "m5",
+          "name": "Motor 5 - Long Travel B",
           "sparepart": ""
         }
       ]
     },
     {
       "id": "crane-08",
-      "name": "8. Crane 15 Ton - Produksi",
-      "location": "Plant TKG",
-      "area": "tkg",
+      "name": "MHE DEMAG 10 T SL8",
+      "location": "Plant CCC",
+      "area": "ccc",
       "installed": false,
       "gearboxes": [
         {
-          "key": "gb01",
-          "name": "GB 01 - Main Hoist",
+          "key": "m1",
+          "name": "Motor 1 - Main Hoist",
           "sparepart": ""
         },
         {
-          "key": "gb02",
-          "name": "GB 02 - Aux Hoist",
+          "key": "m2",
+          "name": "Motor 2 - Aux Hoist",
           "sparepart": ""
         },
         {
-          "key": "gb03",
-          "name": "GB 03 - Trolley",
+          "key": "m3",
+          "name": "Motor 3 - Trolley",
           "sparepart": ""
         },
         {
-          "key": "gb04",
-          "name": "GB 04 - Long Travel A",
+          "key": "m4",
+          "name": "Motor 4 - Long Travel A",
           "sparepart": ""
         },
         {
-          "key": "gb05",
-          "name": "GB 05 - Long Travel B",
+          "key": "m5",
+          "name": "Motor 5 - Long Travel B",
           "sparepart": ""
         }
       ]
     },
     {
       "id": "crane-09",
-      "name": "9. Crane 5 Ton (Single Girder)",
-      "location": "Plant CCK",
-      "area": "cck",
+      "name": "GANTRY CRANE 3 T SL9",
+      "location": "Plant CCC",
+      "area": "ccc",
       "installed": false,
       "gearboxes": [
         {
-          "key": "gb01",
-          "name": "GB 01 - Main Hoist",
+          "key": "m1",
+          "name": "Motor 1 - Main Hoist",
           "sparepart": ""
         },
         {
-          "key": "gb02",
-          "name": "GB 02 - Aux Hoist",
+          "key": "m2",
+          "name": "Motor 2 - Aux Hoist",
           "sparepart": ""
         },
         {
-          "key": "gb03",
-          "name": "GB 03 - Trolley",
+          "key": "m3",
+          "name": "Motor 3 - Trolley",
           "sparepart": ""
         },
         {
-          "key": "gb04",
-          "name": "GB 04 - Long Travel A",
+          "key": "m4",
+          "name": "Motor 4 - Long Travel A",
           "sparepart": ""
         },
         {
-          "key": "gb05",
-          "name": "GB 05 - Long Travel B",
+          "key": "m5",
+          "name": "Motor 5 - Long Travel B",
           "sparepart": ""
         }
       ]
     },
     {
       "id": "crane-10",
-      "name": "10. Crane 10 Ton - PDY TKG2",
-      "location": "Plant TKG",
-      "area": "tkg",
+      "name": "GANTRY CRANE 3 T SL10",
+      "location": "Plant CCC",
+      "area": "ccc",
       "installed": false,
       "gearboxes": [
         {
-          "key": "gb01",
-          "name": "GB 01 - Main Hoist",
+          "key": "m1",
+          "name": "Motor 1 - Main Hoist",
           "sparepart": ""
         },
         {
-          "key": "gb02",
-          "name": "GB 02 - Aux Hoist",
+          "key": "m2",
+          "name": "Motor 2 - Aux Hoist",
           "sparepart": ""
         },
         {
-          "key": "gb03",
-          "name": "GB 03 - Trolley",
+          "key": "m3",
+          "name": "Motor 3 - Trolley",
           "sparepart": ""
         },
         {
-          "key": "gb04",
-          "name": "GB 04 - Long Travel A",
+          "key": "m4",
+          "name": "Motor 4 - Long Travel A",
           "sparepart": ""
         },
         {
-          "key": "gb05",
-          "name": "GB 05 - Long Travel B",
+          "key": "m5",
+          "name": "Motor 5 - Long Travel B",
           "sparepart": ""
         }
       ]
     },
     {
       "id": "crane-11",
-      "name": "11. Crane 10 Ton - PDY TKG",
-      "location": "Plant TKG",
-      "area": "tkg",
+      "name": "GANTRY CRANE 3,2 T SL11",
+      "location": "Plant CCC",
+      "area": "ccc",
       "installed": false,
       "gearboxes": [
         {
-          "key": "gb01",
-          "name": "GB 01 - Main Hoist",
+          "key": "m1",
+          "name": "Motor 1 - Main Hoist",
           "sparepart": ""
         },
         {
-          "key": "gb02",
-          "name": "GB 02 - Aux Hoist",
+          "key": "m2",
+          "name": "Motor 2 - Aux Hoist",
           "sparepart": ""
         },
         {
-          "key": "gb03",
-          "name": "GB 03 - Trolley",
+          "key": "m3",
+          "name": "Motor 3 - Trolley",
           "sparepart": ""
         },
         {
-          "key": "gb04",
-          "name": "GB 04 - Long Travel A",
+          "key": "m4",
+          "name": "Motor 4 - Long Travel A",
           "sparepart": ""
         },
         {
-          "key": "gb05",
-          "name": "GB 05 - Long Travel B",
+          "key": "m5",
+          "name": "Motor 5 - Long Travel B",
           "sparepart": ""
         }
       ]
     },
     {
       "id": "crane-12",
-      "name": "12. Crane 15 Ton - MCY TKG",
-      "location": "Plant TKG",
-      "area": "tkg",
+      "name": "MITSUBISHI 5 T SL12",
+      "location": "Plant CCC",
+      "area": "ccc",
       "installed": false,
       "gearboxes": [
         {
-          "key": "gb01",
-          "name": "GB 01 - Main Hoist",
+          "key": "m1",
+          "name": "Motor 1 - Main Hoist",
           "sparepart": ""
         },
         {
-          "key": "gb02",
-          "name": "GB 02 - Aux Hoist",
+          "key": "m2",
+          "name": "Motor 2 - Aux Hoist",
           "sparepart": ""
         },
         {
-          "key": "gb03",
-          "name": "GB 03 - Trolley",
+          "key": "m3",
+          "name": "Motor 3 - Trolley",
           "sparepart": ""
         },
         {
-          "key": "gb04",
-          "name": "GB 04 - Long Travel A",
+          "key": "m4",
+          "name": "Motor 4 - Long Travel A",
           "sparepart": ""
         },
         {
-          "key": "gb05",
-          "name": "GB 05 - Long Travel B",
+          "key": "m5",
+          "name": "Motor 5 - Long Travel B",
           "sparepart": ""
         }
       ]
     },
     {
       "id": "crane-13",
-      "name": "13. Nippon Hoist 3 Ton (Semy Gantry) Produksi LC/LD",
-      "location": "Plant CCK",
-      "area": "cck",
+      "name": "MITSUBISHI 10 T SL13",
+      "location": "Plant CCC",
+      "area": "ccc",
       "installed": false,
       "gearboxes": [
         {
-          "key": "gb01",
-          "name": "GB 01 - Main Hoist",
+          "key": "m1",
+          "name": "Motor 1 - Main Hoist",
           "sparepart": ""
         },
         {
-          "key": "gb02",
-          "name": "GB 02 - Aux Hoist",
+          "key": "m2",
+          "name": "Motor 2 - Aux Hoist",
           "sparepart": ""
         },
         {
-          "key": "gb03",
-          "name": "GB 03 - Trolley",
+          "key": "m3",
+          "name": "Motor 3 - Trolley",
           "sparepart": ""
         },
         {
-          "key": "gb04",
-          "name": "GB 04 - Long Travel A",
+          "key": "m4",
+          "name": "Motor 4 - Long Travel A",
           "sparepart": ""
         },
         {
-          "key": "gb05",
-          "name": "GB 05 - Long Travel B",
+          "key": "m5",
+          "name": "Motor 5 - Long Travel B",
           "sparepart": ""
         }
       ]
     },
     {
       "id": "crane-14",
-      "name": "14. Crane 5 Ton - PDY Sheet",
-      "location": "Plant CCK",
-      "area": "cck",
+      "name": "NIPPON HOIST 16 T SH1",
+      "location": "Plant CCC",
+      "area": "ccc",
       "installed": false,
       "gearboxes": [
         {
-          "key": "gb01",
-          "name": "GB 01 - Main Hoist",
+          "key": "m1",
+          "name": "Motor 1 - Main Hoist",
           "sparepart": ""
         },
         {
-          "key": "gb02",
-          "name": "GB 02 - Aux Hoist",
+          "key": "m2",
+          "name": "Motor 2 - Aux Hoist",
           "sparepart": ""
         },
         {
-          "key": "gb03",
-          "name": "GB 03 - Trolley",
+          "key": "m3",
+          "name": "Motor 3 - Trolley",
           "sparepart": ""
         },
         {
-          "key": "gb04",
-          "name": "GB 04 - Long Travel A",
+          "key": "m4",
+          "name": "Motor 4 - Long Travel A",
           "sparepart": ""
         },
         {
-          "key": "gb05",
-          "name": "GB 05 - Long Travel B",
+          "key": "m5",
+          "name": "Motor 5 - Long Travel B",
           "sparepart": ""
         }
       ]
     },
     {
       "id": "crane-15",
-      "name": "15. Crane 15 Ton - MCY Slitter (SA)",
-      "location": "Plant CCK",
-      "area": "cck",
+      "name": "NIPPON HOIST 10 T SH2",
+      "location": "Plant CCC",
+      "area": "ccc",
       "installed": false,
       "gearboxes": [
         {
-          "key": "gb01",
-          "name": "GB 01 - Main Hoist",
+          "key": "m1",
+          "name": "Motor 1 - Main Hoist",
           "sparepart": ""
         },
         {
-          "key": "gb02",
-          "name": "GB 02 - Aux Hoist",
+          "key": "m2",
+          "name": "Motor 2 - Aux Hoist",
           "sparepart": ""
         },
         {
-          "key": "gb03",
-          "name": "GB 03 - Trolley",
+          "key": "m3",
+          "name": "Motor 3 - Trolley",
           "sparepart": ""
         },
         {
-          "key": "gb04",
-          "name": "GB 04 - Long Travel A",
+          "key": "m4",
+          "name": "Motor 4 - Long Travel A",
           "sparepart": ""
         },
         {
-          "key": "gb05",
-          "name": "GB 05 - Long Travel B",
+          "key": "m5",
+          "name": "Motor 5 - Long Travel B",
           "sparepart": ""
         }
       ]
     },
     {
       "id": "crane-16",
-      "name": "16. Crane 15 Ton - MCY Blanking",
-      "location": "Plant CBK",
-      "area": "cbk",
+      "name": "NIPPON HOIST 10 T SH3",
+      "location": "Plant CCC",
+      "area": "ccc",
       "installed": false,
       "gearboxes": [
         {
-          "key": "gb01",
-          "name": "GB 01 - Main Hoist",
+          "key": "m1",
+          "name": "Motor 1 - Main Hoist",
           "sparepart": ""
         },
         {
-          "key": "gb02",
-          "name": "GB 02 - Aux Hoist",
+          "key": "m2",
+          "name": "Motor 2 - Aux Hoist",
           "sparepart": ""
         },
         {
-          "key": "gb03",
-          "name": "GB 03 - Trolley",
+          "key": "m3",
+          "name": "Motor 3 - Trolley",
           "sparepart": ""
         },
         {
-          "key": "gb04",
-          "name": "GB 04 - Long Travel A",
+          "key": "m4",
+          "name": "Motor 4 - Long Travel A",
           "sparepart": ""
         },
         {
-          "key": "gb05",
-          "name": "GB 05 - Long Travel B",
+          "key": "m5",
+          "name": "Motor 5 - Long Travel B",
           "sparepart": ""
         }
       ]
     },
     {
       "id": "crane-17",
-      "name": "17. Crane 15 Ton - PDY CB1",
-      "location": "Plant CBK",
-      "area": "cbk",
+      "name": "GANTRY CRANE 3 T SH4",
+      "location": "Plant CCC",
+      "area": "ccc",
       "installed": false,
       "gearboxes": [
         {
-          "key": "gb01",
-          "name": "GB 01 - Main Hoist",
+          "key": "m1",
+          "name": "Motor 1 - Main Hoist",
           "sparepart": ""
         },
         {
-          "key": "gb02",
-          "name": "GB 02 - Aux Hoist",
+          "key": "m2",
+          "name": "Motor 2 - Aux Hoist",
           "sparepart": ""
         },
         {
-          "key": "gb03",
-          "name": "GB 03 - Trolley",
+          "key": "m3",
+          "name": "Motor 3 - Trolley",
           "sparepart": ""
         },
         {
-          "key": "gb04",
-          "name": "GB 04 - Long Travel A",
+          "key": "m4",
+          "name": "Motor 4 - Long Travel A",
           "sparepart": ""
         },
         {
-          "key": "gb05",
-          "name": "GB 05 - Long Travel B",
+          "key": "m5",
+          "name": "Motor 5 - Long Travel B",
           "sparepart": ""
         }
       ]
     },
     {
       "id": "crane-18",
-      "name": "18. Crane 15 Ton (Single Girder) - PDY",
-      "location": "Plant TWB",
-      "area": "twb",
+      "name": "GANTRY CRANE 3 T SH5",
+      "location": "Plant CCC",
+      "area": "ccc",
       "installed": false,
       "gearboxes": [
         {
-          "key": "gb01",
-          "name": "GB 01 - Main Hoist",
+          "key": "m1",
+          "name": "Motor 1 - Main Hoist",
           "sparepart": ""
         },
         {
-          "key": "gb02",
-          "name": "GB 02 - Aux Hoist",
+          "key": "m2",
+          "name": "Motor 2 - Aux Hoist",
           "sparepart": ""
         },
         {
-          "key": "gb03",
-          "name": "GB 03 - Trolley",
+          "key": "m3",
+          "name": "Motor 3 - Trolley",
           "sparepart": ""
         },
         {
-          "key": "gb04",
-          "name": "GB 04 - Long Travel A",
+          "key": "m4",
+          "name": "Motor 4 - Long Travel A",
           "sparepart": ""
         },
         {
-          "key": "gb05",
-          "name": "GB 05 - Long Travel B",
+          "key": "m5",
+          "name": "Motor 5 - Long Travel B",
           "sparepart": ""
         }
       ]
     },
     {
-      "id": "crane-19",
-      "name": "19. Nippon Hoist 5 Ton (Semy Gantry) - Turn Over CB1",
-      "location": "Plant CBK",
-      "area": "cbk",
-      "installed": false,
+      "id": "crane-30",
+      "name": "1 CRANE TEST (SIMULATE)",
+      "area": "ccc",
+      "location": "Plant CCC",
+      "installed": true,
       "gearboxes": [
         {
-          "key": "gb01",
-          "name": "GB 01 - Main Hoist",
-          "sparepart": ""
+          "key": "m1",
+          "name": "Motor 1 - Long Travel 1",
+          "sparepart": "SIM0001"
         },
         {
-          "key": "gb02",
-          "name": "GB 02 - Aux Hoist",
-          "sparepart": ""
+          "key": "m2",
+          "name": "Motor 2 - Long Travel 2",
+          "sparepart": "SIM0002"
         },
         {
-          "key": "gb03",
-          "name": "GB 03 - Trolley",
-          "sparepart": ""
+          "key": "m3",
+          "name": "Motor 3 - Cross Travel",
+          "sparepart": "SIM0003"
         },
         {
-          "key": "gb04",
-          "name": "GB 04 - Long Travel A",
-          "sparepart": ""
+          "key": "m4",
+          "name": "Motor 4 - Hoist Speed 1",
+          "sparepart": "SIM0004"
         },
         {
-          "key": "gb05",
-          "name": "GB 05 - Long Travel B",
-          "sparepart": ""
+          "key": "m5",
+          "name": "Motor 5 - Hoist Speed 2",
+          "sparepart": "SIM0005"
         }
-      ]
+      ],
+      "limits": {
+        "low": 15,
+        "warning": 85,
+        "danger": 105
+      },
+      "insulationClass": "F"
     },
     {
-      "id": "crane-20",
-      "name": "20. Crane 10 Ton - PDY CB2",
-      "location": "Plant CBK",
-      "area": "cbk",
+      "id": "crane-31",
+      "name": "2 CRANE TEST (SIMULATE)",
+      "area": "ccc",
+      "location": "Plant CCC",
       "installed": false,
       "gearboxes": [
         {
-          "key": "gb01",
-          "name": "GB 01 - Main Hoist",
-          "sparepart": ""
+          "key": "m1",
+          "name": "Motor 1 - Long Travel 1",
+          "sparepart": "SIM0001"
         },
         {
-          "key": "gb02",
-          "name": "GB 02 - Aux Hoist",
-          "sparepart": ""
+          "key": "m2",
+          "name": "Motor 2 - Long Travel 2",
+          "sparepart": "SIM0002"
         },
         {
-          "key": "gb03",
-          "name": "GB 03 - Trolley",
-          "sparepart": ""
+          "key": "m3",
+          "name": "Motor 3 - Cross Travel",
+          "sparepart": "SIM0003"
         },
         {
-          "key": "gb04",
-          "name": "GB 04 - Long Travel A",
-          "sparepart": ""
+          "key": "m4",
+          "name": "Motor 4 - Hoist Speed 1",
+          "sparepart": "SIM0004"
         },
         {
-          "key": "gb05",
-          "name": "GB 05 - Long Travel B",
-          "sparepart": ""
+          "key": "m5",
+          "name": "Motor 5 - Hoist Speed 2",
+          "sparepart": "SIM0005"
         }
-      ]
+      ],
+      "limits": {
+        "low": 15,
+        "warning": 85,
+        "danger": 105
+      },
+      "insulationClass": "F"
     },
     {
-      "id": "crane-21",
-      "name": "21. Crane 5 Ton - Produksi LA",
-      "location": "Plant CCK",
-      "area": "cck",
+      "id": "crane-32",
+      "name": "3 CRANE TEST (SIMULATE)",
+      "area": "ccc",
+      "location": "Plant CCC",
       "installed": false,
       "gearboxes": [
         {
-          "key": "gb01",
-          "name": "GB 01 - Main Hoist",
-          "sparepart": ""
+          "key": "m1",
+          "name": "Motor 1 - Long Travel 1",
+          "sparepart": "SIM0001"
         },
         {
-          "key": "gb02",
-          "name": "GB 02 - Aux Hoist",
-          "sparepart": ""
+          "key": "m2",
+          "name": "Motor 2 - Long Travel 2",
+          "sparepart": "SIM0002"
         },
         {
-          "key": "gb03",
-          "name": "GB 03 - Trolley",
-          "sparepart": ""
+          "key": "m3",
+          "name": "Motor 3 - Cross",
+          "sparepart": "SIM0003"
         },
         {
-          "key": "gb04",
-          "name": "GB 04 - Long Travel A",
-          "sparepart": ""
+          "key": "m4",
+          "name": "Motor 4 - Hoist Speed 1",
+          "sparepart": "SIM0004"
         },
         {
-          "key": "gb05",
-          "name": "GB 05 - Long Travel B",
-          "sparepart": ""
+          "key": "m5",
+          "name": "Motor 5 - Hoist Speed 2",
+          "sparepart": "SIM0005"
         }
-      ]
+      ],
+      "limits": {
+        "low": 15,
+        "warning": 85,
+        "danger": 105
+      },
+      "insulationClass": "F"
     },
     {
-      "id": "crane-22",
-      "name": "22. Crane 15 Ton - Produksi Slitter (SA)",
-      "location": "Plant CCK",
-      "area": "cck",
+      "id": "crane-33",
+      "name": "4 CRANE TEST (SIMULATE)",
+      "area": "ccc",
+      "location": "Plant CCC",
       "installed": false,
       "gearboxes": [
         {
-          "key": "gb01",
-          "name": "GB 01 - Main Hoist",
-          "sparepart": ""
+          "key": "m1",
+          "name": "Motor 1 - Long Travel 1",
+          "sparepart": "SIM0001"
         },
         {
-          "key": "gb02",
-          "name": "GB 02 - Aux Hoist",
-          "sparepart": ""
+          "key": "m2",
+          "name": "Motor 2 - Long Travel 2",
+          "sparepart": "SIM0002"
         },
         {
-          "key": "gb03",
-          "name": "GB 03 - Trolley",
-          "sparepart": ""
+          "key": "m3",
+          "name": "Motor 3 - Cross Travel",
+          "sparepart": "SIM0003"
         },
         {
-          "key": "gb04",
-          "name": "GB 04 - Long Travel A",
-          "sparepart": ""
+          "key": "m4",
+          "name": "Motor 4 - Hoist Speed 1",
+          "sparepart": "SIM0004"
         },
         {
-          "key": "gb05",
-          "name": "GB 05 - Long Travel B",
-          "sparepart": ""
+          "key": "m5",
+          "name": "Motor 5 - Hoist Speed 2",
+          "sparepart": "SIM0005"
         }
-      ]
+      ],
+      "limits": {
+        "low": 15,
+        "warning": 85,
+        "danger": 105
+      },
+      "insulationClass": "F"
     },
     {
-      "id": "crane-23",
-      "name": "23. Nippon Hoist 3 Ton (Semy Gantry) - Produksi SB",
-      "location": "Plant CCK",
-      "area": "cck",
+      "id": "crane-34",
+      "name": "5 CRANE TEST (SIMULATE)",
+      "area": "ccc",
+      "location": "Plant CCC",
       "installed": false,
       "gearboxes": [
         {
-          "key": "gb01",
-          "name": "GB 01 - Main Hoist",
-          "sparepart": ""
+          "key": "m1",
+          "name": "Motor 1 - Long Travel 1",
+          "sparepart": "SIM0001"
         },
         {
-          "key": "gb02",
-          "name": "GB 02 - Aux Hoist",
-          "sparepart": ""
+          "key": "m2",
+          "name": "Motor 2 - Long Travel 2",
+          "sparepart": "SIM0002"
         },
         {
-          "key": "gb03",
-          "name": "GB 03 - Trolley",
-          "sparepart": ""
+          "key": "m3",
+          "name": "Motor 3 - Cross Travel",
+          "sparepart": "SIM0003"
         },
         {
-          "key": "gb04",
-          "name": "GB 04 - Long Travel A",
-          "sparepart": ""
+          "key": "m4",
+          "name": "Motor 4 - Hoist Speed 1",
+          "sparepart": "SIM0004"
         },
         {
-          "key": "gb05",
-          "name": "GB 05 - Long Travel B",
-          "sparepart": ""
+          "key": "m5",
+          "name": "Motor 5 -  Hoist Speed 2",
+          "sparepart": "SIM0005"
         }
-      ]
-    },
-    {
-      "id": "crane-24",
-      "name": "24. Nippon Hoist 5 Ton (Semy Gantry) - Produksi GM",
-      "location": "Plant TKG",
-      "area": "tkg",
-      "installed": false,
-      "gearboxes": [
-        {
-          "key": "gb01",
-          "name": "GB 01 - Main Hoist",
-          "sparepart": ""
-        },
-        {
-          "key": "gb02",
-          "name": "GB 02 - Aux Hoist",
-          "sparepart": ""
-        },
-        {
-          "key": "gb03",
-          "name": "GB 03 - Trolley",
-          "sparepart": ""
-        },
-        {
-          "key": "gb04",
-          "name": "GB 04 - Long Travel A",
-          "sparepart": ""
-        },
-        {
-          "key": "gb05",
-          "name": "GB 05 - Long Travel B",
-          "sparepart": ""
-        }
-      ]
-    },
-    {
-      "id": "crane-25",
-      "name": "25. Nippon Hoist 3 Ton (Semy Gantry) - Maintenance Dies - TOPY",
-      "location": "Plant CBK",
-      "area": "cbk",
-      "installed": false,
-      "gearboxes": [
-        {
-          "key": "gb01",
-          "name": "GB 01 - Main Hoist",
-          "sparepart": ""
-        },
-        {
-          "key": "gb02",
-          "name": "GB 02 - Aux Hoist",
-          "sparepart": ""
-        },
-        {
-          "key": "gb03",
-          "name": "GB 03 - Trolley",
-          "sparepart": ""
-        },
-        {
-          "key": "gb04",
-          "name": "GB 04 - Long Travel A",
-          "sparepart": ""
-        },
-        {
-          "key": "gb05",
-          "name": "GB 05 - Long Travel B",
-          "sparepart": ""
-        }
-      ]
+      ],
+      "limits": {
+        "low": 15,
+        "warning": 85,
+        "danger": 105
+      },
+      "insulationClass": "F"
     }
   ]
 }

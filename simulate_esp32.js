@@ -4,20 +4,27 @@
 // Meniru firmware GBXMQTT.ino versi 2 (folder firmware/):
 //   pabrik/<area>/<crane>/temp    tiap 5 detik:
 //       {"crane_id":"crane-01","plant":"TWB","timestamp":"2026-09-20T10:00:05+07:00",
-//        "temps":{"gb01":55.2,...,"gb04":null},"faults":{"gb04":"0x80"}}
+//        "temps":{"m1":55.2,...,"m4":null},"faults":{"m4":"0x80"}}
 //   pabrik/<area>/<crane>/status  saat tersambung (retained):
 //       {"online":true,"fw":"2.0.0","ip":"...","rssi":-60,...}
 //   Last Will (dikirim BROKER kalau simulator mati mendadak): {"online":false}
 //
 // CARA PAKAI:
-//     npm run simulate                              -> crane-01, 5 gearbox normal
-//     node simulate_esp32.js --error gb04           -> gb04 fault MAX31865 (null + kode fault)
-//     node simulate_esp32.js --dingin gb02          -> gb02 terbaca ~5 °C (alarm suhu rendah)
-//     node simulate_esp32.js --mati gb05            -> gb05 tidak dikirim (jadi offline)
+//     npm run simulate                              -> crane-01, 5 motor normal
+//     node simulate_esp32.js --error m4             -> m4 fault MAX31865 (null + kode fault)
+//     node simulate_esp32.js --dingin m2            -> m2 terbaca ~5 °C (alarm suhu rendah)
+//     node simulate_esp32.js --mati m5              -> m5 tidak dikirim (jadi offline)
 //     node simulate_esp32.js --crane crane-02 --area cbk   -> crane lain (uji deteksi perangkat baru)
-//     node simulate_esp32.js --gearbox 6            -> kirim gb01..gb06 (uji gearbox baru)
+//     node simulate_esp32.js --motor 6              -> kirim m1..m6 (uji motor baru)
 //
-// gb03 sengaja dibuat naik-turun pelan 55 -> 88 °C (siklus 10 menit) supaya
+// LEBIH DARI 1 ESP32 PER CRANE (jalankan di jendela terpisah, crane yang sama):
+//     node simulate_esp32.js --crane crane-30 --motor 3                         -> ESP utama: m1..m3, topik pabrik/ccc/crane-30/...
+//     node simulate_esp32.js --crane crane-30 --node 2 --motor-awal 4 --motor 2 -> ESP ke-2: m4..m5, topik pabrik/ccc/crane-30_2/...
+//   --node N        nomor ESP di crane itu (1 = utama). N >= 2 -> ID perangkat "<crane>_N"
+//   --motor-awal K  nomor motor sensor pertama ESP ini (bawaan 1). Nomor motor antar ESP
+//                   dalam satu crane TIDAK boleh sama - dashboard menandainya "bentrok".
+//
+// m3 sengaja dibuat naik-turun pelan 55 -> 88 °C (siklus 10 menit) supaya
 // status warning & danger ikut kelihatan di dashboard.
 //
 // Tutup dengan Ctrl+C = "dimatikan dengan sopan" (kirim status offline).
@@ -36,18 +43,22 @@ function arg(name, fallback) {
 }
 
 const BROKER_URL = arg('broker', 'mqtt://localhost:1883');
-const CRANE_ID = arg('crane', 'crane-01');
-const AREA = arg('area', 'twb');
+const CRANE_ID = arg('crane', 'crane-30',);
+const AREA = arg('area', 'ccc');
 const ERROR_GB = arg('error', null);
 const COLD_GB = arg('dingin', null);
 const DEAD_GB = arg('mati', null);
-const GB_COUNT = Number(arg('gearbox', 5));
+const GB_COUNT = Number(arg('motor', arg('gearbox', 5)));
+const NODE = Number(arg('node', 1));
+const MOTOR_START = Number(arg('motor-awal', 1));
+// ID perangkat = ID crane untuk ESP utama, "<crane>_<node>" untuk ESP tambahan (sama dengan firmware)
+const DEVICE_ID = NODE > 1 ? `${CRANE_ID}_${NODE}` : CRANE_ID;
 const INTERVAL_MS = 5000;
-const TOPIC = `pabrik/${AREA}/${CRANE_ID}/temp`;
-const STATUS_TOPIC = `pabrik/${AREA}/${CRANE_ID}/status`;
+const TOPIC = `pabrik/${AREA}/${DEVICE_ID}/temp`;
+const STATUS_TOPIC = `pabrik/${AREA}/${DEVICE_ID}/status`;
 const FW_VERSION = '2.0.0-sim';
 
-const gearboxes = Array.from({ length: GB_COUNT }, (_, i) => `gb${String(i + 1).padStart(2, '0')}`);
+const gearboxes = Array.from({ length: GB_COUNT }, (_, i) => `m${MOTOR_START + i}`);
 const temps = {};
 gearboxes.forEach((gb, i) => { temps[gb] = 48 + (i * 3) % 12; });
 const startMs = Date.now();
@@ -69,7 +80,7 @@ function nextReading() {
         }
         if (gb === COLD_GB) {
             temps[gb] = 5 + (Math.random() - 0.5);
-        } else if (gb === 'gb03') {
+        } else if (gb === 'm3') {
             const phase = ((Date.now() - startMs) / 600000) * 2 * Math.PI; // siklus 10 menit
             temps[gb] = 71.5 - 16.5 * Math.cos(phase) + (Math.random() - 0.5);
         } else {
@@ -81,17 +92,17 @@ function nextReading() {
     return { out, faults };
 }
 
-// Login seperti ESP32 asli: username = crane-id, password dari mqtt/credentials.json
+// Login seperti ESP32 asli: username = ID perangkat, password dari mqtt/credentials.json
 function loadCredentials() {
     try {
         const creds = JSON.parse(fs.readFileSync(path.join(__dirname, 'mqtt', 'credentials.json'), 'utf-8'));
-        if (creds[CRANE_ID]) return { username: CRANE_ID, password: creds[CRANE_ID] };
+        if (creds[DEVICE_ID]) return { username: DEVICE_ID, password: creds[DEVICE_ID] };
     } catch (e) { /* belum di-setup */ }
     return {};
 }
 
 const client = mqtt.connect(BROKER_URL, {
-    clientId: `ESP32-${CRANE_ID}-sim`,
+    clientId: `ESP32-${DEVICE_ID}-sim`,   // wajib unik per alat - 2 ESP32 dengan Client ID sama saling menendang
     reconnectPeriod: 3000,
     ...loadCredentials(),
     will: { topic: STATUS_TOPIC, payload: JSON.stringify({ online: false }), qos: 1, retain: true }
@@ -100,8 +111,8 @@ const client = mqtt.connect(BROKER_URL, {
 client.on('connect', () => {
     console.log(`[Sim] Terhubung ke ${BROKER_URL}, kirim ke ${TOPIC} tiap ${INTERVAL_MS / 1000} detik. Ctrl+C untuk berhenti.`);
     client.publish(STATUS_TOPIC, JSON.stringify({
-        online: true, fw: FW_VERSION, ip: '127.0.0.1', mac: 'SIMULATOR', rssi: -55,
-        sensors: gearboxes.length, uptime_s: Math.round((Date.now() - startMs) / 1000), buffer_bytes: 0
+        online: true, fw: FW_VERSION, ip: '127.0.0.1', mac: `SIMULATOR-${NODE}`, rssi: -55,
+        node: NODE, sensors: gearboxes.length, keys: gearboxes.join(','), uptime_s: Math.round((Date.now() - startMs) / 1000), buffer_bytes: 0
     }), { qos: 1, retain: true });
 });
 client.on('error', err => console.error('[Sim] MQTT error:', err.message));
