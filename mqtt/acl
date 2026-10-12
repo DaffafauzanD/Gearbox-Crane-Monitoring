@@ -1,4 +1,4 @@
-# ============================================================
+﻿# ============================================================
 # Hak akses topik MQTT (dipakai mosquitto.conf -> acl_file)
 # ============================================================
 # Topik data suhu: pabrik/<area>/<crane-id>/temp
@@ -7,19 +7,24 @@
 user logger
 topic read pabrik/+/+/temp
 
-# server.js (server alarm & deteksi perangkat): baca data suhu & status ESP32
+# server.js (server alarm & deteksi perangkat): baca data suhu & status ESP32,
+# dan kirim perintah ke ESP32 (mis. "ota" dari tombol Update di Pengaturan)
 user web
 topic read pabrik/+/+/temp
 topic read pabrik/+/+/status
+topic read pabrik/+/+/log
+topic write pabrik/+/+/perintah
 
 # Dashboard: password-nya pasti kelihatan di browser, jadi akun ini HANYA boleh
 # baca. Orang yang mengintip password-nya tetap tidak bisa kirim data palsu.
 user dashboard
 topic read pabrik/+/+/temp
 
-# ESP32: tiap alat login pakai crane-id-nya sendiri (mis. username "crane-01")
-# dan hanya boleh kirim ke topik crane itu. %u = username yang login.
+# ESP32: tiap alat login pakai ID perangkatnya sendiri (mis. username "crane-01", atau
+# "crane-01_2" untuk ESP ke-2 di crane yang sama) dan hanya boleh kirim ke topiknya
+# sendiri. %u = username yang login. Data dari crane-01_2 tetap digabung ke crane-01.
 # "status" = online/offline + info firmware (termasuk Last Will saat putus mendadak)
 pattern write pabrik/+/%u/temp
 pattern write pabrik/+/%u/status
+pattern write pabrik/+/%u/log
 pattern read pabrik/+/%u/perintah
