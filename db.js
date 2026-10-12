@@ -74,7 +74,7 @@ function openDb(file = DB_FILE) {
             alarm_id    TEXT NOT NULL,           -- crane-01/gb03/temp
             crane_id    TEXT NOT NULL,
             gb_key      TEXT NOT NULL,
-            type        TEXT NOT NULL,           -- temp | rise | fault | offline
+            type        TEXT NOT NULL,           -- temp | low | rise | fault | offline
             severity    TEXT NOT NULL,           -- warning | danger
             value       TEXT,
             peak        REAL,

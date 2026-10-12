@@ -1,13 +1,16 @@
 // ============================================================
 // EXCEL EXPORT - bikin file excel/<crane-id>.xlsx (log 7 hari terakhir)
 // ============================================================
-// Sumber datanya file CSV di folder logs/ yang ditulis mqtt_logger.js.
+// Sumber data (dipakai server.js lewat excel_worker.js): ringkasan PER MENIT di SQLite
+// (data/monitoring.db, tabel stats_minute) - satu query kecil, tidak perlu membaca ratusan
+// ribu baris CSV. Kalau `db` tidak diberikan, cadangannya membaca file CSV di logs/.
 // Data mentah (1 baris tiap 5 detik = ~17.000 baris/hari/gearbox) terlalu besar
 // buat dibaca di Excel, jadi di sini diringkas PER MENIT: suhu min, rata-rata,
 // maks, jumlah sampel, dan jumlah sampel error. CSV mentahnya tetap utuh di logs/.
 //
-// Dipanggil otomatis oleh mqtt_logger.js (tiap EXCEL_INTERVAL). Bisa juga
-// dijalankan manual untuk generate ulang semua crane sekaligus:
+// Dibuat SAAT DIKLIK (tombol download di dashboard -> GET /api/excel/<crane> di server.js),
+// di thread terpisah (excel_worker.js), bukan lagi berkala oleh logger. Bisa juga dijalankan
+// manual untuk membuat ulang semua crane sekaligus (dari database):
 //     node excel_export.js
 //
 // Semua tanggal & jam di file Excel dalam WIB.
@@ -18,8 +21,7 @@ const path = require('path');
 const AlarmRules = require('./alarm_rules');
 const Settings = require('./settings');
 
-const WIB_OFFSET_MS = 7 * 60 * 60 * 1000; // WIB = UTC+7, tanpa daylight saving
-const DAY_MS = 24 * 60 * 60 * 1000;
+const { WIB_OFFSET_MS, DAY_MS } = require('./common');
 
 // Batas suhu per gearbox: sama dengan dashboard & alarm (config/settings.json)
 function loadSettings() {
@@ -109,6 +111,39 @@ async function readCraneMinutes(logDir, craneId, days, nowMs) {
     return { dates, gearboxes: result };
 }
 
+// Sama bentuknya dengan hasil readCraneMinutes (CSV), tapi dari ringkasan per menit di SQLite.
+// "Data Terakhir" jadi ketelitian menit (bukan detik) - selebihnya isinya sama.
+function readCraneMinutesFromDb(db, craneId, days, nowMs) {
+    const dates = [];
+    for (let i = days - 1; i >= 0; i--) dates.push(wibDateStr(nowMs - i * DAY_MS));
+    const startMs = wibMidnightMs(dates[0]);
+
+    const rows = db.prepare(`
+        SELECT s.gb_key AS gb, m.ts, m.temp_min, m.temp_max, m.temp_sum, m.n, m.errors
+        FROM stats_minute m JOIN sensors s ON s.id = m.sensor_id
+        WHERE s.crane_id = ? AND m.ts >= ? AND m.ts <= ?
+        ORDER BY s.gb_key, m.ts`).all(craneId, startMs, nowMs);
+
+    const result = {};
+    rows.forEach(r => {
+        const gb = result[r.gb] || (result[r.gb] = { minutes: new Map(), samples: 0, errors: 0, lastMs: null });
+        gb.minutes.set(r.ts, {
+            min: r.temp_min === null ? Infinity : r.temp_min,
+            max: r.temp_max === null ? -Infinity : r.temp_max,
+            sum: r.temp_sum, count: r.n, errors: r.errors
+        });
+        gb.samples += r.n + r.errors;
+        gb.errors += r.errors;
+        gb.lastMs = r.ts;
+    });
+    return { dates, gearboxes: result };
+}
+
+// Daftar crane-id yang punya ringkasan data di database
+function listCranesWithData(db) {
+    return db.prepare('SELECT DISTINCT crane_id FROM sensors ORDER BY crane_id').all().map(r => r.crane_id);
+}
+
 const round1 = v => Math.round(v * 10) / 10;
 
 const FILL_WARNING = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDE68A' } };
@@ -134,8 +169,11 @@ function tempFill(v, limits) {
     return null;
 }
 
-async function exportCraneExcel({ logDir, excelDir, craneId, days = 7, nowMs = Date.now() }) {
-    const { dates, gearboxes } = await readCraneMinutes(logDir, craneId, days, nowMs);
+// `db` (DatabaseSync) diberikan -> data dari SQLite. Tanpa `db` -> membaca CSV di `logDir`.
+async function exportCraneExcel({ db, logDir, excelDir, craneId, days = 7, nowMs = Date.now() }) {
+    const { dates, gearboxes } = db
+        ? readCraneMinutesFromDb(db, craneId, days, nowMs)
+        : await readCraneMinutes(logDir, craneId, days, nowMs);
     const gbKeys = Object.keys(gearboxes).sort();
     if (gbKeys.length === 0) return null; // belum ada data sama sekali dalam periode ini
 
@@ -260,19 +298,22 @@ async function listCranesWithLogs(logDir) {
     return [...ids].sort();
 }
 
-module.exports = { exportCraneExcel, listCranesWithLogs, wibDateStr };
+module.exports = { exportCraneExcel, listCranesWithLogs, listCranesWithData, wibDateStr };
 
-// Jalankan manual: node excel_export.js
+// Jalankan manual: node excel_export.js  (membuat ulang Excel semua crane, dari database)
 if (require.main === module) {
     (async () => {
-        const logDir = path.join(__dirname, 'logs');
+        const { DatabaseSync } = require('node:sqlite');
+        const { DB_FILE } = require('./db');
         const excelDir = path.join(__dirname, 'excel');
-        const cranes = await listCranesWithLogs(logDir);
-        if (cranes.length === 0) console.log('[Excel] Tidak ada CSV di folder logs/.');
+        const db = new DatabaseSync(DB_FILE, { readOnly: true });
+        const cranes = listCranesWithData(db);
+        if (cranes.length === 0) console.log('[Excel] Belum ada data di database.');
         for (const craneId of cranes) {
-            const out = await exportCraneExcel({ logDir, excelDir, craneId });
+            const out = await exportCraneExcel({ db, excelDir, craneId });
             console.log(out ? `[Excel] ${craneId} -> ${out}` : `[Excel] ${craneId}: tidak ada data 7 hari terakhir`);
         }
+        db.close();
     })().catch(err => {
         console.error('[Excel] Gagal:', err);
         process.exit(1);
