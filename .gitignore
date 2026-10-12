@@ -4,6 +4,7 @@ node_modules/
 # Rahasia - JANGAN di-commit
 mqtt/credentials.json
 mqtt/passwd
+accounts-credentials.json
 firmware/GBXMQTT/secrets.h
 # firmware versi lama: password WiFi tertulis langsung di dalam kodenya
 /GBXMQTT.ino
