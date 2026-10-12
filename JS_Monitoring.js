@@ -26,7 +26,7 @@ let currentStatusFilter = 'all';
 //
 // Batas tiap gearbox dari pengaturan (aturannya di alarm_rules.js, sama persis
 // dengan yang dipakai server alarm).
-const MAX_HISTORY = 8;                    // titik histori di chart (1 titik / menit)
+const MAX_HISTORY = 10;                   // titik histori di chart (1 titik / menit)
 const STATUS_REFRESH_MS = 15000;          // seberapa sering status offline dicek ulang
 
 const STATUS_META = {
@@ -36,7 +36,8 @@ const STATUS_META = {
     'danger':        { label: 'danger',          class: 'status-danger',        color: '#ef4444' },
     'fault':         { label: 'sensor error',    class: 'status-fault',         color: '#a855f7' },
     'offline':       { label: 'offline',         class: 'status-offline',       color: '#64748b' },
-    'not-installed': { label: 'belum terpasang', class: 'status-not-installed', color: '#64748b' }
+    'not-installed': { label: 'belum terpasang', class: 'status-not-installed', color: '#64748b' },
+    'disabled':      { label: 'nonaktif',        class: 'status-not-installed', color: '#64748b' }  // sensor/motor dimatikan di Pengaturan
 };
 const LIVE_STATUSES = ['normal', 'low', 'warning', 'danger']; // urut dari yang paling ringan
 
@@ -64,6 +65,10 @@ function generateInitialData() {
                 key: gbDef.key,       // key MQTT (gb01, gb02, ...) - dipakai untuk data, alarm & batas
                 name: gbDef.name,
                 sparepart: gbDef.sparepart || '',
+                enabled: gbDef.enabled !== false,              // false = sensor/motor dimatikan di Pengaturan
+                // gearbox boleh punya kelas sendiri; kalau kosong, ikut kelas crane
+                // (diisi sekali lewat tombol preset di kartu "Batas suhu default")
+                insulationClass: gbDef.insulationClass || item.insulationClass || '',
                 temp: old ? old.temp : null,                   // nilai terakhir (NaN kalau tidak valid)
                 rawValue: old ? old.rawValue : null,           // nilai mentah terakhir, untuk sensor error
                 lastUpdatedMs: old ? old.lastUpdatedMs : null, // kapan terakhir data masuk
@@ -89,12 +94,21 @@ function getLimits(crane, gb) {
     return AlarmRules.getLimits(settings, crane.mqttId, gb.key);
 }
 
+// ESP32 tempat sensor motor ini terpasang (dipelajari server dari data yang masuk). Belum ada
+// yang pernah mengirim motor ini -> ESP utama (ID perangkat = ID crane), sama seperti dulu.
+function deviceOfGearbox(crane, gb) {
+    return deviceList.find(d => d.craneId === crane.mqttId && (d.gbKeys || []).includes(gb.key))
+        || deviceList.find(d => d.craneId === crane.mqttId && (d.node || 1) === 1);
+}
+
 function getGearboxStatus(crane, gb) {
     if (!crane.installed) return 'not-installed';
+    if (gb.enabled === false) return 'disabled';   // dimatikan: tidak dinilai (tidak offline/error), tidak ikut ringkasan crane
     const limits = getLimits(crane, gb);
-    if (gb.lastUpdatedMs === null || Date.now() - gb.lastUpdatedMs > limits.offlineMinutes * 60 * 1000) return 'offline';
-    // ESP32 mengabarkan dirinya putus (Last Will, firmware v2): langsung offline
-    const device = deviceList.find(d => d.craneId === crane.mqttId);
+    if (gb.lastUpdatedMs === null || nowMs() - gb.lastUpdatedMs > limits.offlineMinutes * 60 * 1000) return 'offline';
+    // ESP32 yang memegang motor ini mengabarkan dirinya putus (Last Will, firmware v2): langsung offline.
+    // Crane dengan beberapa ESP32: yang dilihat cuma ESP32 pemilik motor ini, bukan semua.
+    const device = deviceOfGearbox(crane, gb);
     if (device && device.online === false) return 'offline';
     if (!isValidTemp(gb.temp)) return 'fault';
     return AlarmRules.tempStatus(gb.temp, limits);
@@ -103,7 +117,10 @@ function getGearboxStatus(crane, gb) {
 function getCraneSummary(crane) {
     if (!crane.installed) return { status: 'not-installed', offlineCount: 0, faultCount: 0 };
 
-    const entries = crane.gearboxes.map(gb => ({ gb, status: getGearboxStatus(crane, gb) }));
+    // Motor yang dimatikan tidak ikut dihitung. Kalau SEMUA dimatikan, crane tampil seperti "belum terpasang".
+    const activeGbs = crane.gearboxes.filter(gb => gb.enabled !== false);
+    if (activeGbs.length === 0) return { status: 'not-installed', offlineCount: 0, faultCount: 0, allDisabled: true };
+    const entries = activeGbs.map(gb => ({ gb, status: getGearboxStatus(crane, gb) }));
     const live = entries.filter(e => LIVE_STATUSES.includes(e.status));
     const offlineCount = entries.filter(e => e.status === 'offline').length;
     const faultCount = entries.filter(e => e.status === 'fault').length;
@@ -116,19 +133,42 @@ function getCraneSummary(crane) {
         return { status: worst, maxGb, offlineCount, faultCount };
     }
 
-    const lastSeenMs = Math.max(0, ...crane.gearboxes.map(gb => gb.lastUpdatedMs || 0)) || null;
+    const lastSeenMs = Math.max(0, ...activeGbs.map(gb => gb.lastUpdatedMs || 0)) || null;
     return { status: faultCount > 0 ? 'fault' : 'offline', offlineCount, faultCount, lastSeenMs };
+}
+
+// ---- JAM: selalu jam SERVER, zona WIB ----
+// Semua waktu di dashboard dihitung dari jam server (bukan jam perangkat yang membuka)
+// dan ditampilkan dalam WIB, jadi PC server, HP, dan layar TV selalu menunjukkan hal
+// yang sama walau jam/zona waktu perangkatnya meleset. Selisih jam diambil dari api/me
+// (lihat syncServerClock) dan diperbarui berkala.
+const WIB_TZ = 'Asia/Jakarta';
+let serverOffsetMs = 0;
+
+function nowMs() { return Date.now() + serverOffsetMs; }
+
+async function syncServerClock() {
+    try {
+        const t0 = Date.now();
+        const res = await fetch('api/me', { cache: 'no-store' });
+        const t1 = Date.now();
+        if (!res.ok) return;
+        const { now } = await res.json();
+        // jam server dianggap terambil di tengah perjalanan request (t0..t1)
+        if (typeof now === 'number') serverOffsetMs = now + (t1 - t0) / 2 - t1;
+    } catch (e) { /* offline sesaat - pakai selisih terakhir yang diketahui */ }
 }
 
 function formatClock(ms) {
     const d = new Date(ms);
-    const time = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-    if (d.toDateString() === new Date().toDateString()) return time;
-    return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ' ' + time;
+    const time = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: WIB_TZ });
+    const dayKey = t => new Date(t).toLocaleDateString('en-CA', { timeZone: WIB_TZ });
+    if (dayKey(ms) === dayKey(nowMs())) return time;
+    return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', timeZone: WIB_TZ }) + ' ' + time;
 }
 
 function formatAgo(ms) {
-    const sec = Math.max(0, Math.round((Date.now() - ms) / 1000));
+    const sec = Math.max(0, Math.round((nowMs() - ms) / 1000));
     if (sec < 5) return 'baru saja';
     if (sec < 60) return `${sec} detik lalu`;
     const min = Math.floor(sec / 60);
@@ -154,6 +194,17 @@ function setStatValue(id, value) {
 // ============================================================
 // HYDRATE DARI state.json (hasil mqtt_logger.js)
 // ============================================================
+// Titik dengan label jam (menit) yang sama digabung, nilai TERAKHIR yang dipakai. Chart
+// dirancang 1 titik per menit; state.json versi lama masih berisi titik per 5 detik.
+function collapseByMinute(points) {
+    const out = [];
+    points.forEach(h => {
+        if (out.length && out[out.length - 1].time === h.time) out[out.length - 1] = h;
+        else out.push(h);
+    });
+    return out;
+}
+
 async function hydrateFromServerState() {
     let state;
     try {
@@ -182,8 +233,8 @@ async function hydrateFromServerState() {
             // Histori ditampilkan apa adanya (jam aslinya). Kalau datanya sudah lama,
             // gearbox otomatis berstatus "offline" dan kartunya menunjukkan kapan
             // data terakhir masuk - bukan dipoles seolah-olah data baru.
-            gb.history = (Array.isArray(gbState.history) ? gbState.history : [])
-                .filter(h => isValidTemp(h.temp))
+            gb.history = collapseByMinute((Array.isArray(gbState.history) ? gbState.history : [])
+                .filter(h => isValidTemp(h.temp)))
                 .slice(-MAX_HISTORY);
         });
     });
@@ -198,14 +249,27 @@ function renderAccordion() {
     const container = document.getElementById('accordionContainer');
     if (!container) return;
 
-    container.innerHTML = cranesData.map(craneItemHTML).join('');
+    container.innerHTML = cranesData.map((crane, i) => craneItemHTML(crane, i + 1)).join('');
     cranesData.forEach(updateCraneView);
     recomputeGlobalStats();
 }
 
-function craneItemHTML(crane) {
+// Ikon hook crane (outline): tali, blok hoist segi enam, kait. Warna ikut `color`
+// elemen induk (.crane-icon), jadi otomatis abu-abu untuk crane yang belum terpasang.
+const CRANE_HOOK_SVG = `<svg viewBox="36 18 56 102" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M40.5 22V50M45 22V43M79.7 22V36M84.5 22V50"/>
+    <polygon points="40.5,53 51,35 76,35 85,53 76,71 50,71"/>
+    <path d="M52 42L46 53L51 64"/>
+    <path d="M53 41.5H66" stroke-width="3.4"/>
+    <circle cx="63.5" cy="62" r="5.5"/>
+    <path d="M67 78V84C74 89 76 98 72 106C68 114 58 116 53 111C49 107 49 100 49 96"/>
+    <path d="M59.5 78V89C66 93 66 100 62.5 103.5C60 106 57 104 56 101"/>
+    <path d="M49 96V88H54L58 100"/>
+</svg>`;
+
+function craneItemHTML(crane, no) {
     const downloadBtn = crane.installed
-        ? `<button class="btn-download-log" onclick="downloadCraneLog(${crane.id}, event)" title="Download log 7 hari (Excel)">
+        ? `<button class="btn-download-log no-viewer" onclick="downloadCraneLog(${crane.id}, event)" title="Download log 7 hari (Excel)">
                <i class="fa-solid fa-download"></i>
            </button>`
         : '';
@@ -221,10 +285,10 @@ function craneItemHTML(crane) {
         <div class="crane-item${crane.installed ? '' : ' crane-not-installed'}" id="crane-item-${crane.id}">
             <div class="crane-header" onclick="toggleCrane(${crane.id})">
                 <div class="crane-title-area">
-                    <div class="crane-icon"><i class="fa-solid fa-gears"></i></div>
+                    <div class="crane-icon">${CRANE_HOOK_SVG}</div>
                     <div>
-                        <div class="crane-name">${crane.name}</div>
-                        <div class="crane-sub"><i class="fa-solid fa-location-dot"></i> ${crane.location} • ${crane.gearboxes.length} Gearbox Motor</div>
+                        <div class="crane-name"><span class="crane-no-tag">${String(no).padStart(2, '0')}</span>${crane.name}</div>
+                        <div class="crane-sub"><i class="fa-solid fa-location-dot"></i> ${crane.location} • ${crane.gearboxes.length} Motor</div>
                     </div>
                 </div>
                 <div class="crane-header-status">
@@ -290,6 +354,9 @@ function updateGearboxView(crane, gb, prefix = '') {
     let info = '';
     if (status === 'not-installed') {
         label = 'Suhu';
+    } else if (status === 'disabled') {
+        label = 'Suhu';
+        info = '<i class="fa-solid fa-power-off"></i> Sensor dinonaktifkan (Pengaturan)';
     } else if (status === 'offline') {
         label = 'Suhu Terakhir';
         if (isValidTemp(gb.temp)) value = formatTemp(gb.temp);
@@ -303,7 +370,12 @@ function updateGearboxView(crane, gb, prefix = '') {
             : `<i class="fa-solid fa-triangle-exclamation"></i> Nilai sensor tidak valid: ${escapeHTML(gb.rawValue)}`;
     } else {
         value = formatTemp(gb.temp);
-        info = `<i class="fa-solid fa-circle-dot"></i> Update terakhir ${formatAgo(gb.lastUpdatedMs)}`;
+        info = `<i class="fa-solid fa-circle"></i> Update terakhir ${formatAgo(gb.lastUpdatedMs)}`;
+    }
+    // Crane dengan beberapa ESP32: tunjukkan sensor ini terpasang di ESP yang mana
+    const dev = status === 'not-installed' || status === 'disabled' ? null : deviceOfGearbox(crane, gb);
+    if (dev && dev.nodeCount > 1) {
+        info += ` <span class="gb-esp-tag${dev.online === false ? ' gb-esp-tag--off' : ''}" title="Sensor ini terpasang di ESP32 ${escapeHTML(dev.id)}${dev.online === false ? ' (putus)' : ''}"><i class="fa-solid fa-microchip"></i> ESP ${dev.node}</span>`;
     }
     document.getElementById(`gb-label-${id}`).innerHTML = `<i class="fa-solid fa-thermometer-half"></i> ${label}`;
     document.getElementById(`gb-temp-${id}`).innerText = value;
@@ -311,13 +383,15 @@ function updateGearboxView(crane, gb, prefix = '') {
 
     // Batas gearbox ini (bisa beda per gearbox, diatur di halaman Pengaturan)
     const limits = getLimits(crane, gb);
-    document.getElementById(`gb-limits-${id}`).innerHTML = status === 'not-installed' ? '' :
+    document.getElementById(`gb-limits-${id}`).innerHTML = (status === 'not-installed' || status === 'disabled') ? '' :
         `<span title="Di bawah ini: alarm suhu rendah">Min ${limits.low}</span>` +
-        `<span title="Rentang kerja normal">Normal ≤ ${limits.warning}</span>` +
-        `<span title="Di atas ini: Danger">Max ${limits.danger} °C</span>`;
+        `<span title="Di atas ini: Warning (mendekati Max)">Warning ≤ ${limits.warning}</span>` +
+        `<span title="Di atas ini: Danger">Max ${limits.danger} °C</span>` +
+        (gb.insulationClass ? `<span class="gb-class-text" title="Kelas isolasi motor">Class ${escapeHTML(gb.insulationClass)}</span>` : '');
 
     let placeholder = '';
     if (status === 'not-installed') placeholder = '<i class="fa-solid fa-ban"></i> Sensor belum terpasang';
+    else if (status === 'disabled') placeholder = '<i class="fa-solid fa-power-off"></i> Sensor dinonaktifkan';
     else if (gb.history.length === 0) placeholder = '<i class="fa-solid fa-hourglass-half"></i> Menunggu data sensor...';
     const ph = document.getElementById(`chart-ph-${id}`);
     ph.innerHTML = placeholder;
@@ -370,7 +444,11 @@ function syncChart(store, key, gb, color, allowCreate, limits) {
                     borderWidth: 2,
                     fill: true,
                     tension: 0.3,
-                    pointRadius: 2
+                    // Titik terakhir (nilai sekarang) lebih besar & ber-ring, titik lama kecil
+                    pointRadius: ctx => ctx.dataIndex === ctx.dataset.data.length - 1 ? 4.5 : 2.5,
+                    pointBackgroundColor: ctx => ctx.dataset.borderColor,
+                    pointBorderWidth: ctx => ctx.dataIndex === ctx.dataset.data.length - 1 ? 2 : 1,
+                    pointBorderColor: ctx => ctx.dataIndex === ctx.dataset.data.length - 1 ? '#f8fafc' : ctx.dataset.borderColor
                 }]
             },
             options: {
@@ -378,8 +456,15 @@ function syncChart(store, key, gb, color, allowCreate, limits) {
                 maintainAspectRatio: false,
                 plugins: { legend: { display: false } },
                 scales: {
-                    x: { grid: { color: '#1e293b' }, ticks: { color: '#f8fafc', font: { size: 9 } } },
-                    y: { grid: { color: '#1e293b' }, ticks: { color: '#f8fafc', font: { size: 8 } }, ...chartScale(limits) }
+                    x: {
+                        grid: { color: 'rgba(148, 163, 184, 0.12)', tickColor: 'rgba(148, 163, 184, 0.4)', tickLength: 4 },
+                        ticks: { color: '#94a3b8', font: { size: 9 }, autoSkip: false, maxRotation: 0 }
+                    },
+                    y: {
+                        grid: { color: 'rgba(148, 163, 184, 0.12)', tickColor: 'rgba(148, 163, 184, 0.4)', tickLength: 4 },
+                        ticks: { color: '#94a3b8', font: { size: 8 } },
+                        ...chartScale(limits)
+                    }
                 }
             }
         });
@@ -395,6 +480,19 @@ function syncChart(store, key, gb, color, allowCreate, limits) {
     chart.update('none');
 }
 
+function craneSummaryHTML(summary) {
+    if (summary.status === 'not-installed') return summary.allDisabled
+        ? '<i class="fa-solid fa-power-off"></i> Semua sensor nonaktif'
+        : '<i class="fa-solid fa-ban"></i> Sensor belum terpasang';
+    if (summary.status === 'offline') {
+        return summary.lastSeenMs
+            ? `<i class="fa-solid fa-plug-circle-xmark"></i> Tidak ada data sejak <strong>${formatClock(summary.lastSeenMs)}</strong>`
+            : '<i class="fa-solid fa-plug-circle-xmark"></i> Belum ada data dari sensor';
+    }
+    if (summary.status === 'fault') return '<i class="fa-solid fa-triangle-exclamation"></i> Sensor error';
+    return `<i class="fa-solid fa-fire-flame-curved"></i> Max Suhu: <strong>${summary.maxGb.name} (${formatTemp(summary.maxGb.temp)})</strong>`;
+}
+
 function updateCraneView(crane) {
     const summary = getCraneSummary(crane);
     const meta = STATUS_META[summary.status];
@@ -405,20 +503,8 @@ function updateCraneView(crane) {
         badge.innerText = meta.label;
     }
 
-    let summaryHTML;
-    if (summary.status === 'not-installed') {
-        summaryHTML = '<i class="fa-solid fa-ban"></i> Sensor belum terpasang';
-    } else if (summary.status === 'offline') {
-        summaryHTML = summary.lastSeenMs
-            ? `<i class="fa-solid fa-plug-circle-xmark"></i> Tidak ada data sejak <strong>${formatClock(summary.lastSeenMs)}</strong>`
-            : '<i class="fa-solid fa-plug-circle-xmark"></i> Belum ada data dari sensor';
-    } else if (summary.status === 'fault') {
-        summaryHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Sensor error';
-    } else {
-        summaryHTML = `<i class="fa-solid fa-fire-flame-curved"></i> Max Suhu: <strong>${summary.maxGb.name} (${formatTemp(summary.maxGb.temp)})</strong>`;
-    }
     const summaryElem = document.getElementById(`crane-summary-${crane.id}`);
-    if (summaryElem) summaryElem.innerHTML = summaryHTML;
+    if (summaryElem) summaryElem.innerHTML = craneSummaryHTML(summary);
 
     // Crane yang sebagian gearbox-nya live tapi sisanya bermasalah: tetap dinilai dari
     // yang live, tapi masalahnya ditampilkan supaya tidak terlewat.
@@ -474,12 +560,15 @@ function toggleCrane(craneId) {
 // supaya sensor yang berhenti mengirim segera kelihatan.
 function startLiveTimers() {
     function recordMinutePoint() {
-        const timeLabel = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        const timeLabel = new Date(nowMs()).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: WIB_TZ });
 
         cranesData.forEach(crane => {
             crane.gearboxes.forEach(gb => {
                 if (!LIVE_STATUSES.includes(getGearboxStatus(crane, gb))) return;
-                gb.history.push({ time: timeLabel, temp: parseFloat(gb.temp.toFixed(1)) });
+                const point = { time: timeLabel, temp: parseFloat(gb.temp.toFixed(1)) };
+                const last = gb.history[gb.history.length - 1];
+                if (last && last.time === timeLabel) gb.history[gb.history.length - 1] = point; // menit yang sama dengan titik dari state.json: ganti, jangan dobel
+                else gb.history.push(point);
                 if (gb.history.length > MAX_HISTORY) gb.history.shift();
             });
         });
@@ -487,7 +576,7 @@ function startLiveTimers() {
         refreshAllViews();
     }
 
-    const msUntilNextMinute = 60000 - (Date.now() % 60000);
+    const msUntilNextMinute = 60000 - (nowMs() % 60000);
     setTimeout(() => {
         recordMinutePoint();
         setInterval(recordMinutePoint, 60000);
@@ -507,13 +596,12 @@ const MQTT_TOPIC_SUB  = "pabrik/+/+/temp";
 
 let mqttClient = null;
 
-// Indikator koneksi broker di header - buat membedakan "semua offline karena
-// broker putus" dengan "sensor di crane tertentu yang mati".
+// Indikator koneksi broker - di header DAN di modal Overview (dua-duanya
+// dipasang bareng, biar orang yang lihat layar Overview fullscreen juga tahu
+// kalau broker/server alarm putus).
 function setConnectionStatus(state, text) {
-    const el = document.getElementById('mqttConnStatus');
-    if (!el) return;
-    el.className = `conn-pill conn-${state}`;
-    el.innerHTML = `<i class="fa-solid fa-circle"></i> ${text}`;
+    setPill('mqttConnStatus', state, text);
+    setPill('ovMqttConnStatus', state, text);
 }
 
 // Akun MQTT dashboard (baca-saja) diambil dari server.js, bukan ditulis di kode ini.
@@ -534,8 +622,10 @@ async function connectMQTT() {
     }
 
     setConnectionStatus('connecting', 'Menghubungkan ke broker...');
-    const { wsPort, ...credentials } = await loadMqttCredentials();
-    const brokerUrl = `ws://${window.location.hostname || 'localhost'}:${wsPort || 9001}`;
+    const { wsPort, serverIp, ...credentials } = await loadMqttCredentials();
+    const brokerHost = window.location.hostname || 'localhost';
+    const brokerUrl = `ws://${brokerHost}:${wsPort || 9001}`;
+    const brokerLabel = serverIp || brokerHost; // tampilkan IP LAN asli server kalau ada, bukan "localhost"
     let loginRejected = false;
 
     mqttClient = mqtt.connect(brokerUrl, {
@@ -547,7 +637,7 @@ async function connectMQTT() {
     mqttClient.on('connect', () => {
         loginRejected = false;
         console.log('[MQTT] Terhubung ke broker:', brokerUrl);
-        setConnectionStatus('up', 'Broker terhubung');
+        setConnectionStatus('up', `Broker Terhubung <small>(${brokerLabel})</small>`);
         mqttClient.subscribe(MQTT_TOPIC_SUB, (err) => {
             if (err) console.error('[MQTT] Gagal subscribe:', err);
             else console.log('[MQTT] Subscribe topik:', MQTT_TOPIC_SUB);
@@ -556,10 +646,10 @@ async function connectMQTT() {
 
     mqttClient.on('reconnect', () => {
         console.log('[MQTT] Reconnecting...');
-        setConnectionStatus('connecting', 'Menghubungkan ulang ke broker...');
+        setConnectionStatus('connecting', `Menghubungkan ulang ke broker... <small>(${brokerLabel})</small>`);
     });
     mqttClient.on('close', () => {
-        setConnectionStatus('down', loginRejected ? 'Login broker ditolak' : 'Broker terputus');
+        setConnectionStatus('down', `${loginRejected ? 'Login broker ditolak' : 'Broker terputus'} <small>(${brokerLabel})</small>`);
     });
     mqttClient.on('error', (err) => {
         // 4/5 = MQTT 3.1.1, 134/135 = MQTT 5: username/password salah atau tidak diizinkan
@@ -575,9 +665,11 @@ async function connectMQTT() {
             console.error('[MQTT] Payload bukan JSON valid dari topik', topic, payloadBuffer.toString());
             return;
         }
-        // crane_id di payload harus sama dengan crane di topik (pabrik/<area>/<crane-id>/temp),
-        // karena broker cuma menjamin tiap ESP32 kirim ke topik crane-nya sendiri.
-        if (data.crane_id !== topic.split('/')[2]) {
+        // crane_id di payload harus sama dengan crane di topik (pabrik/<area>/<id-perangkat>/temp),
+        // karena broker cuma menjamin tiap ESP32 kirim ke topiknya sendiri. ID perangkat ESP
+        // tambahan = "<crane>_<node>" (mis. crane-01_2) -> cranenya tetap crane-01.
+        const fromTopic = AlarmRules.parseDeviceId(topic.split('/')[2]);
+        if (!fromTopic || data.crane_id !== fromTopic.craneId) {
             console.warn('[MQTT] crane_id tidak cocok dengan topik, diabaikan:', topic, data.crane_id);
             return;
         }
@@ -601,7 +693,7 @@ function handleMqttTemperature(data) {
         gb.temp = parseFloat(tempValue);
         // Pakai jam TERIMA (bukan data.timestamp dari ESP32) untuk menilai "masih hidup":
         // yang dicek di sini adalah apakah sensornya masih mengirim sekarang.
-        gb.lastUpdatedMs = Date.now();
+        gb.lastUpdatedMs = nowMs();
     });
 
     updateCraneView(crane);
@@ -651,12 +743,334 @@ function filterCranes() {
     applyCombinedFilter();
 }
 
-// Download log 7 hari terakhir dalam format Excel (ringkasan per menit), diambil
-// dari file yang dibuat mqtt_logger.js lewat excel_export.js (folder
-// excel/<mqttId>.xlsx, diperbarui tiap 10 menit) - bukan cuma 8 titik terakhir
-// yang ada di memori browser. Kalau crane belum pernah dapat data sama sekali,
-// file Excel-nya belum ada.
-function downloadCraneLog(craneId, event) {
+// ============================================================
+// MODAL KONFIRMASI GENERIK - ganti confirm() bawaan browser yang tampilannya
+// tidak bisa disesuaikan. Markup-nya ada di index.html (#confirmModalOverlay).
+// ============================================================
+// detail (opsional)     : teks peringatan tambahan di bawah pesan utama.
+// requireText (opsional): kata yang HARUS diketik persis (mis. "HAPUS") sebelum
+//                         tombol Ya bisa ditekan - buat tindakan berbahaya.
+function showConfirmModal(message, onConfirm, detail = '', requireText = '') {
+    const overlay = document.getElementById('confirmModalOverlay');
+    if (!overlay) { // halaman ini tidak punya modalnya (bukan index.html) - fallback
+        const text = detail ? `${message}\n\n${detail}` : message;
+        if (requireText) {
+            if (prompt(`${text}\n\nKetik ${requireText} untuk melanjutkan:`) === requireText) onConfirm();
+        } else if (confirm(text)) {
+            onConfirm();
+        }
+        return;
+    }
+    document.getElementById('confirmModalText').textContent = message;
+    const detailEl = document.getElementById('confirmModalDetail');
+    detailEl.textContent = detail;
+    detailEl.style.display = detail ? '' : 'none';
+
+    const okBtn = document.getElementById('confirmModalOkBtn');
+    const cancelBtn = document.getElementById('confirmModalCancelBtn');
+    const typeWrap = document.getElementById('confirmModalTypeWrap');
+    const typeInput = document.getElementById('confirmModalInput');
+
+    // Kolom ketik hanya muncul kalau requireText diisi; Ya nonaktif sampai cocok persis
+    typeWrap.style.display = requireText ? '' : 'none';
+    typeInput.value = '';
+    if (requireText) {
+        document.getElementById('confirmModalTypeLabel').textContent = `Ketik ${requireText} untuk melanjutkan`;
+        typeInput.placeholder = requireText;
+    }
+    okBtn.disabled = !!requireText;
+
+    // Huruf besar/kecil tidak dibedakan: "hapus" = "HAPUS"
+    const typedOk = () => typeInput.value.trim().toUpperCase() === requireText.toUpperCase();
+    function onType() { okBtn.disabled = !typedOk(); }
+
+    function close() {
+        overlay.classList.remove('active');
+        okBtn.removeEventListener('click', onOk);
+        cancelBtn.removeEventListener('click', onCancel);
+        typeInput.removeEventListener('input', onType);
+    }
+    function onOk() {
+        // Dicek lagi di sini (bukan cuma lewat tombol disabled) supaya tidak bisa dilewati
+        if (requireText && !typedOk()) return;
+        close();
+        onConfirm();
+    }
+    function onCancel() { close(); }
+
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+    if (requireText) typeInput.addEventListener('input', onType);
+
+    overlay.classList.add('active');
+    if (requireText) typeInput.focus();
+}
+
+// ============================================================
+// SESI LOGIN - panel "siapa sedang online". Master melihat semua sesi, akun
+// lain cuma sesama akunnya (difilter di server, lihat api/sessions di server.js)
+// ============================================================
+let sessionsPanelTimer = null;
+
+let sessionsTab = 'sessions'; // 'sessions' | 'signups' | 'accounts'
+
+// Data mentah tiap tab disimpan terpisah supaya kotak pencarian bisa menyaring tanpa
+// perlu fetch ulang, dan tiap tab punya query pencariannya sendiri (tidak saling tercampur).
+const sessionsRaw = { sessions: [], signups: [], accounts: [] };
+const sessionsSearchQuery = { sessions: '', signups: '', accounts: '' };
+
+// Pencarian sederhana: cocokkan query ke seluruh field item (username, IP, browser, dst)
+// tanpa perlu daftar field spesifik per tab - cukup untuk skala data akun/sesi di sini.
+function filterBySearch(list, tab) {
+    const q = sessionsSearchQuery[tab].trim().toLowerCase();
+    if (!q) return list;
+    return list.filter(item => JSON.stringify(item).toLowerCase().includes(q));
+}
+
+function onSessionsSearch(value) {
+    sessionsSearchQuery[sessionsTab] = value;
+    if (sessionsTab === 'signups') renderSignups(filterBySearch(sessionsRaw.signups, 'signups'));
+    else if (sessionsTab === 'accounts') renderAccounts(filterBySearch(sessionsRaw.accounts, 'accounts'));
+    else renderSessions(filterBySearch(sessionsRaw.sessions, 'sessions'));
+}
+
+function openSessionsPanel() {
+    document.getElementById('sessionsPanelOverlay').classList.add('active');
+    setSessionsTab(sessionsTab);
+    if (sessionsPanelTimer) clearInterval(sessionsPanelTimer);
+    sessionsPanelTimer = setInterval(loadSessions, 10000); // selama panel terbuka, refresh tiap 10 detik
+}
+
+function setSessionsTab(tab) {
+    sessionsTab = tab;
+    document.querySelectorAll('.sessions-tab').forEach(b => b.classList.toggle('active', b.dataset.stab === tab));
+    document.getElementById('sessionsList').style.display = tab === 'sessions' ? '' : 'none';
+    document.getElementById('signupsList').style.display = tab === 'signups' ? '' : 'none';
+    document.getElementById('accountsList').style.display = tab === 'accounts' ? '' : 'none';
+    const searchInput = document.getElementById('sessionsSearchInput');
+    if (searchInput) {
+        searchInput.value = sessionsSearchQuery[tab];
+        searchInput.placeholder = tab === 'sessions' ? 'Cari nama, IP, atau perangkat...'
+            : tab === 'signups' ? 'Cari nama atau IP...'
+            : 'Cari nama akun...';
+    }
+    if (tab === 'signups') loadSignups();
+    else if (tab === 'accounts') loadAccounts();
+    else loadSessions();
+}
+
+// ---- Daftar akun hasil pengajuan + hapus (master & maintenance; server juga menolak akun lain) ----
+async function loadAccounts() {
+    const list = document.getElementById('accountsList');
+    try {
+        const res = await fetch('api/accounts', { cache: 'no-store' });
+        if (!res.ok) throw new Error('gagal memuat');
+        const { accounts } = await res.json();
+        sessionsRaw.accounts = accounts;
+        renderAccounts(filterBySearch(accounts, 'accounts'));
+    } catch (e) {
+        list.innerHTML = '<div class="alarm-empty"><i class="fa-solid fa-triangle-exclamation"></i> Gagal memuat daftar akun</div>';
+    }
+}
+
+function renderAccounts(accounts) {
+    const list = document.getElementById('accountsList');
+    if (!accounts.length) {
+        list.innerHTML = sessionsRaw.accounts.length
+            ? '<div class="alarm-empty"><i class="fa-solid fa-magnifying-glass"></i> Tidak ada akun yang cocok dengan pencarian</div>'
+            : '<div class="alarm-empty"><i class="fa-solid fa-user-slash"></i> Belum ada akun hasil pengajuan</div>';
+        return;
+    }
+    list.innerHTML = accounts.map(a => `
+        <div class="alarm-item">
+            <div class="alarm-item-main">
+                <div class="alarm-item-title"><i class="fa-solid fa-user"></i> ${escapeHTML(a.username)}
+                    ${a.online ? '<span class="text-normal"><i class="fa-solid fa-circle" style="font-size:0.5rem"></i> online</span>' : ''}
+                </div>
+                <div class="alarm-item-desc">Hanya melihat dashboard monitoring</div>
+                <div class="alarm-item-time">Akun dibuat ${formatAgo(a.createdAt)}</div>
+            </div>
+            <button class="alarm-ack-btn signup-reject" data-name="${escapeHTML(a.username)}" onclick="deleteAccountClick(this.dataset.name)"><i class="fa-solid fa-trash"></i> Hapus</button>
+        </div>
+    `).join('');
+}
+
+function deleteAccountClick(username) {
+    showConfirmModal(
+        `Hapus akun "${username}"?`,
+        async () => {
+            try {
+                const res = await fetch('api/accounts/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) alert(data.error || 'Gagal menghapus akun');
+            } catch (e) {
+                alert('Tidak bisa menghubungi server.');
+            }
+            loadAccounts();
+        },
+        'Akun ini dihapus permanen dan sesi login-nya langsung diputus. Orangnya harus mengajukan akun baru untuk bisa masuk lagi.'
+    );
+}
+
+// ---- Pengajuan akun (dari halaman login) - master & maintenance yang menyetujui ----
+// Akun yang disetujui berperan "viewer": HANYA boleh melihat dashboard monitoring &
+// indikatornya (server menolak endpoint lain, lihat viewerMayAccess di server.js).
+function setSignupCount(n) {
+    const badge = document.getElementById('signupBadge');
+    if (badge) {
+        badge.textContent = n;
+        badge.style.display = n > 0 ? '' : 'none';
+    }
+    const tabCount = document.getElementById('signupTabCount');
+    if (tabCount) tabCount.textContent = n;
+    // Ada pengajuan baru / sudah diputuskan orang lain sementara daftarnya terbuka -> muat ulang
+    if (sessionsTab === 'signups' && document.getElementById('sessionsPanelOverlay').classList.contains('active')) loadSignups();
+}
+
+async function loadSignups() {
+    const list = document.getElementById('signupsList');
+    try {
+        const res = await fetch('api/signups', { cache: 'no-store' });
+        if (!res.ok) throw new Error('gagal memuat');
+        const { signups } = await res.json();
+        sessionsRaw.signups = signups;
+        renderSignups(filterBySearch(signups, 'signups'));
+    } catch (e) {
+        list.innerHTML = '<div class="alarm-empty"><i class="fa-solid fa-triangle-exclamation"></i> Gagal memuat pengajuan akun</div>';
+    }
+}
+
+function renderSignups(signups) {
+    const list = document.getElementById('signupsList');
+    if (!signups.length) {
+        list.innerHTML = sessionsRaw.signups.length
+            ? '<div class="alarm-empty"><i class="fa-solid fa-magnifying-glass"></i> Tidak ada pengajuan yang cocok dengan pencarian</div>'
+            : '<div class="alarm-empty"><i class="fa-solid fa-user-check"></i> Tidak ada pengajuan yang menunggu</div>';
+        return;
+    }
+    list.innerHTML = signups.map(s => `
+        <div class="alarm-item">
+            <div class="alarm-item-main">
+                <div class="alarm-item-title"><i class="fa-solid fa-user-plus"></i> ${escapeHTML(s.username)}</div>
+                <div class="alarm-item-desc">${s.ip ? escapeHTML(s.ip) : 'IP tidak diketahui'} &middot; ${escapeHTML(shortenUserAgent(s.userAgent))}</div>
+                <div class="alarm-item-time">Diajukan ${formatAgo(s.requestedAt)}</div>
+            </div>
+            <div class="signup-actions">
+                <button class="alarm-ack-btn" data-id="${s.id}" data-name="${escapeHTML(s.username)}" onclick="decideSignup(Number(this.dataset.id), 'approve', this.dataset.name)"><i class="fa-solid fa-check"></i> Setujui</button>
+                <button class="alarm-ack-btn signup-reject" data-id="${s.id}" data-name="${escapeHTML(s.username)}" onclick="decideSignup(Number(this.dataset.id), 'reject', this.dataset.name)"><i class="fa-solid fa-xmark"></i> Tolak</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function decideSignup(id, action, name) {
+    const approve = action === 'approve';
+    showConfirmModal(
+        approve ? `Setujui akun "${name}"?` : `Tolak pengajuan akun "${name}"?`,
+        async () => {
+            try {
+                const res = await fetch('api/signups/decide', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, action })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) alert(data.error || 'Gagal memproses pengajuan');
+            } catch (e) {
+                alert('Tidak bisa menghubungi server.');
+            }
+            loadSignups();
+        },
+        approve
+            ? 'Akun ini akan bisa masuk dan HANYA melihat dashboard monitoring beserta indikatornya.'
+            : 'Pemohon akan diberi tahu (saat mencoba masuk) bahwa pengajuannya ditolak.'
+    );
+}
+
+function closeSessionsPanel() {
+    document.getElementById('sessionsPanelOverlay').classList.remove('active');
+    clearInterval(sessionsPanelTimer);
+    sessionsPanelTimer = null;
+}
+
+// Parser sederhana User-Agent - cukup buat "Chrome di Windows", bukan deteksi
+// versi lengkap. `displayName()` datang dari auth-ui.js (Master/Maintenance).
+function shortenUserAgent(ua) {
+    if (!ua) return 'Perangkat tidak diketahui';
+    const browser = /Edg\//.test(ua) ? 'Edge'
+        : /Chrome\//.test(ua) ? 'Chrome'
+        : /Firefox\//.test(ua) ? 'Firefox'
+        : /Safari\//.test(ua) ? 'Safari'
+        : 'Browser lain';
+    const os = /Windows/.test(ua) ? 'Windows'
+        : /Android/.test(ua) ? 'Android'
+        : /iPhone|iPad/.test(ua) ? 'iOS'
+        : /Mac OS/.test(ua) ? 'macOS'
+        : /Linux/.test(ua) ? 'Linux'
+        : 'OS lain';
+    return `${browser} di ${os}`;
+}
+
+async function loadSessions() {
+    const list = document.getElementById('sessionsList');
+    try {
+        const res = await fetch('api/sessions', { cache: 'no-store' });
+        if (!res.ok) throw new Error('gagal memuat');
+        const { sessions } = await res.json();
+        sessionsRaw.sessions = sessions;
+        renderSessions(filterBySearch(sessions, 'sessions'));
+    } catch (e) {
+        list.innerHTML = '<div class="alarm-empty"><i class="fa-solid fa-triangle-exclamation"></i> Gagal memuat sesi login</div>';
+    }
+}
+
+function renderSessions(sessions) {
+    const list = document.getElementById('sessionsList');
+    if (!sessions.length) {
+        list.innerHTML = sessionsRaw.sessions.length
+            ? '<div class="alarm-empty"><i class="fa-solid fa-magnifying-glass"></i> Tidak ada sesi yang cocok dengan pencarian</div>'
+            : '<div class="alarm-empty"><i class="fa-solid fa-user-slash"></i> Tidak ada sesi login aktif</div>';
+        return;
+    }
+    list.innerHTML = sessions.map(s => `
+        <div class="alarm-item">
+            <div class="alarm-item-main">
+                <div class="alarm-item-title"><i class="fa-solid fa-user"></i> ${escapeHTML(typeof displayName === 'function' ? displayName(s.username) : s.username)}${s.current ? ' <span style="color:#38bdf8;font-weight:500;">(sesi Anda)</span>' : ''}</div>
+                <div class="alarm-item-desc">${s.ip ? escapeHTML(s.ip) : 'IP tidak diketahui'} &middot; ${escapeHTML(shortenUserAgent(s.userAgent))}</div>
+                <div class="alarm-item-time">Login ${formatAgo(s.loginAt)} &middot; aktif ${formatAgo(s.lastActivityAt)}</div>
+            </div>
+            ${s.username !== 'master' && !s.current ? `<button class="alarm-ack-btn" style="background:#ef4444;color:#fff;" onclick="terminateSession(${s.id})" title="Matikan sesi ini - akun itu akan otomatis logout"><i class="fa-solid fa-plug-circle-xmark"></i> Matikan</button>` : ''}
+        </div>
+    `).join('');
+}
+
+// Matikan satu sesi (bukan sesi sendiri & bukan sesi master - dicek juga di server).
+function terminateSession(id) {
+    showConfirmModal('Matikan sesi ini? Akun itu akan langsung logout dari perangkatnya.', async () => {
+        try {
+            const res = await fetch('api/sessions/terminate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) { alert(data.error || 'Gagal mematikan sesi'); return; }
+            loadSessions();
+        } catch (e) {
+            alert('Tidak bisa menghubungi server.');
+        }
+    });
+}
+
+// Download log 7 hari terakhir dalam format Excel (ringkasan per menit). File-nya dibuat
+// SERVER saat tombol diklik (GET api/excel/<crane>, lihat server.js) dari data di database -
+// bukan cuma 8 titik terakhir yang ada di memori browser. Pembuatannya makan ~1-2 detik,
+// jadi tombol menampilkan ikon berputar dan dikunci selama menunggu.
+async function downloadCraneLog(craneId, event) {
     if (event) event.stopPropagation();
 
     const crane = cranesData.find(c => c.id === craneId);
@@ -665,27 +1079,40 @@ function downloadCraneLog(craneId, event) {
         return;
     }
 
-    const excelUrl = `excel/${crane.mqttId}.xlsx`;
+    const btn = event && event.currentTarget;
+    if (btn && btn.disabled) return;
+    const icon = btn && btn.querySelector('i');
+    const iconClass = icon && icon.className;
+    if (btn) {
+        btn.disabled = true;
+        icon.className = 'fa-solid fa-spinner fa-spin';
+    }
 
-    // Cek dulu file-nya beneran ada sebelum trigger download (biar nggak dapat
-    // file kosong/404 kalau logger belum sempat generate untuk crane ini)
-    fetch(excelUrl, { method: 'HEAD', cache: 'no-store' })
-        .then(res => {
-            if (!res.ok) {
-                alert(`Belum ada file log untuk ${crane.name}. File Excel dibuat otomatis oleh mqtt_logger.js paling lambat 10 menit setelah data crane ini mulai masuk.`);
-                return;
-            }
-            const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
-            const a = document.createElement('a');
-            a.href = `${excelUrl}?t=${Date.now()}`; // hindari file versi lama dari cache browser
-            a.download = `${crane.mqttId}_log-7-hari_${today}.xlsx`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-        })
-        .catch(() => {
-            alert('Gagal menghubungi server dashboard untuk mengambil file Excel.');
-        });
+    try {
+        const res = await fetch(`api/excel/${encodeURIComponent(crane.mqttId)}`, { cache: 'no-store' });
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            alert(data.error || `Gagal membuat file Excel untuk ${crane.name}.`);
+            return;
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const today = new Date(nowMs()).toLocaleDateString('en-CA', { timeZone: WIB_TZ }); // YYYY-MM-DD
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${crane.mqttId}_log-7-hari_${today}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (e) {
+        alert('Gagal menghubungi server dashboard untuk mengambil file Excel.');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            icon.className = iconClass;
+        }
+    }
 }
 
 // ============================================================
@@ -795,10 +1222,17 @@ function renderOverviewSlide() {
 
     indicator.innerText = `${overviewIndex + 1} / ${list.length}`;
 
+    // Nomor urut crane sama seperti di accordion Dashboard - posisinya di cranesData
+    // (urutan asli), bukan posisi di slide Overview yang sudah difilter/berubah-ubah.
+    const no = cranesData.findIndex(c => c.id === crane.id) + 1;
+
     body.innerHTML = `
         <div class="overview-crane-title">
-            <h3>${crane.name} <span class="status-badge" id="ov-crane-status"></span></h3>
-            <p><i class="fa-solid fa-location-dot"></i> ${crane.location}</p>
+            <div class="overview-crane-title-main">
+                <h3><span class="crane-no-tag">${String(no).padStart(2, '0')}</span>${crane.name} <span class="status-badge" id="ov-crane-status"></span></h3>
+                <p><i class="fa-solid fa-location-dot"></i> ${crane.location}</p>
+            </div>
+            <div class="summary-temps" id="ov-crane-summary"></div>
         </div>
         <div class="overview-gearbox-grid">
             ${crane.gearboxes.map(gb => gearboxCardHTML(crane, gb, 'ov-')).join('')}
@@ -813,12 +1247,15 @@ function refreshOverviewSlide() {
     const crane = cranesData.find(c => c.id === overviewCraneId);
     if (!crane) return;
 
-    const meta = STATUS_META[getCraneSummary(crane).status];
+    const summary = getCraneSummary(crane);
+    const meta = STATUS_META[summary.status];
     const badge = document.getElementById('ov-crane-status');
     if (badge) {
         badge.className = `status-badge ${meta.class}`;
         badge.innerText = meta.label;
     }
+    const summaryElem = document.getElementById('ov-crane-summary');
+    if (summaryElem) summaryElem.innerHTML = craneSummaryHTML(summary);
     crane.gearboxes.forEach(gb => updateGearboxView(crane, gb, 'ov-'));
 }
 
@@ -871,10 +1308,17 @@ function setPill(id, state, text) {
     el.innerHTML = `<i class="fa-solid fa-circle"></i> ${text}`;
 }
 
+// Sama seperti setConnectionStatus: update pill di header DAN di modal Overview sekaligus.
+function setAlarmPill(state, text) {
+    setPill('alarmConnStatus', state, text);
+    setPill('ovAlarmConnStatus', state, text);
+}
+
 function connectAlarmStream() {
-    setPill('alarmConnStatus', 'connecting', 'Menghubungkan ke server alarm...');
+    setAlarmPill('connecting', 'Menghubungkan ke server alarm...');
     const es = new EventSource('api/stream');
     es.addEventListener('settings', e => applySettings(JSON.parse(e.data)));
+    es.addEventListener('signups', e => setSignupCount(JSON.parse(e.data).pending)); // cuma dikirim ke master & maintenance
     es.addEventListener('devices', e => {
         deviceList = JSON.parse(e.data);
         renderDeviceNotice();
@@ -882,14 +1326,14 @@ function connectAlarmStream() {
     });
     es.addEventListener('alarms', e => {
         alarmStreamOk = true;
-        setPill('alarmConnStatus', 'up', 'Server alarm terhubung');
+        setAlarmPill('up', 'Server Alarm Terhubung');
         alarmState = JSON.parse(e.data);
         onAlarmsChanged();
     });
     // EventSource menyambung ulang sendiri; selama putus, alarm TIDAK bisa diterima
     es.onerror = () => {
         alarmStreamOk = false;
-        setPill('alarmConnStatus', 'down', 'Server alarm terputus');
+        setAlarmPill('down', 'Server alarm terputus');
         renderAlarmIndicators();
     };
 }
@@ -1040,7 +1484,7 @@ function renderAlarmPanel() {
             const { craneName, gbName } = alarmNames(a);
             const ackInfo = a.ackedAt
                 ? `<span class="alarm-acked-label"><i class="fa-solid fa-check"></i> Di-ack ${escapeHTML(a.ackedBy)} · ${formatClock(a.ackedAt)}</span>`
-                : `<button class="alarm-ack-btn" data-id="${escapeHTML(a.id)}" onclick="ackAlarm(this.dataset.id)"><i class="fa-solid fa-check"></i> Ack</button>`;
+                : `<button class="alarm-ack-btn no-viewer" data-id="${escapeHTML(a.id)}" onclick="ackAlarm(this.dataset.id)"><i class="fa-solid fa-check"></i> Ack</button>`;
             return `
                 <div class="alarm-item alarm-${a.severity}${a.ackedAt ? ' acked' : ''}">
                     <div class="alarm-item-main">
@@ -1149,21 +1593,30 @@ async function ackAlarm(id) {
         return;
     }
     if (input) input.classList.remove('needs-input');
+    // Klik beruntun pada alarm yang sama (atau banner yang belum sempat berganti) tidak boleh
+    // mengirim ack dua kali: yang kedua selalu dijawab "sudah di-ack" dan memunculkan pop-up.
+    if (ackInFlight.has(id)) return;
+    ackInFlight.add(id);
     try {
         const res = await fetch('api/alarms/ack', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id, by: name })
         });
-        if (!res.ok) {
+        // 404 = alarm itu sudah di-ack (orang/tab lain) atau sudah selesai sendiri: tujuan klik
+        // tetap tercapai, jadi diam saja - jangan ganggu operator dengan pop-up.
+        if (!res.ok && res.status !== 404) {
             const err = await res.json().catch(() => ({}));
             alert(err.error || 'Gagal ack alarm.');
         }
         // Status baru datang sendiri lewat stream alarm
     } catch (e) {
         alert('Server alarm tidak bisa dihubungi.');
+    } finally {
+        ackInFlight.delete(id);
     }
 }
+const ackInFlight = new Set(); // id alarm yang ack-nya sedang dikirim
 
 // ---------- bunyi ----------
 // Browser baru mengizinkan suara setelah ada klik/ketikan di halaman. Selama
@@ -1274,7 +1727,7 @@ async function loadSettings() {
 
 // Bagian pengaturan yang mengubah susunan dashboard (bukan sekadar batas suhu)
 function settingsLayoutKey(s) {
-    return JSON.stringify(s.cranes.map(c => [c.id, c.name, c.location, c.installed, c.gearboxes.map(g => [g.key, g.name, g.sparepart || ''])]));
+    return JSON.stringify(s.cranes.map(c => [c.id, c.name, c.location, c.installed, c.insulationClass || '', c.gearboxes.map(g => [g.key, g.name, g.sparepart || '', g.insulationClass || '', g.enabled !== false])]));
 }
 
 // Pengaturan diubah (di halaman Pengaturan / aktivasi perangkat): batas suhu langsung
@@ -1306,7 +1759,10 @@ function renderDeviceNotice() {
     if (!box) return;
     const pending = deviceList.filter(d => !d.installed && !d.ignoredAt);
     const newGearboxes = deviceList.filter(d => d.installed && d.unknownGearboxes.length);
-    if (!pending.length && !newGearboxes.length) {
+    // Dua ESP32 di crane yang sama mengirim key motor yang sama (cukup ditampilkan sekali per pasangan)
+    const conflicts = deviceList.filter(d => d.installed && Object.keys(d.conflicts || {}).length)
+        .filter(d => Object.values(d.conflicts).some(c => c.with > d.id));
+    if (!pending.length && !newGearboxes.length && !conflicts.length) {
         box.style.display = 'none';
         return;
     }
@@ -1314,29 +1770,39 @@ function renderDeviceNotice() {
     box.innerHTML = pending.map(d => {
         const crane = settings.cranes.find(c => c.id === d.craneId);
         const title = crane
-            ? `${escapeHTML(crane.name)} <small>(${escapeHTML(d.craneId)})</small>`
-            : `<strong>${escapeHTML(d.craneId)}</strong> <small>(belum ada di daftar crane)</small>`;
+            ? `${escapeHTML(crane.name)}${d.node > 1 ? ' · ESP ' + d.node : ''} <small>(${escapeHTML(d.id)})</small>`
+            : `<strong>${escapeHTML(d.id)}</strong> <small>(belum ada di daftar crane)</small>`;
         const online = d.online === false ? ' · <span class="text-danger">offline</span>' : '';
         return `
             <div class="device-item">
                 <i class="fa-solid fa-satellite-dish"></i>
                 <div class="device-text">
                     <div><strong>Perangkat baru terdeteksi:</strong> ${title}</div>
-                    <small>Area ${escapeHTML(d.area)} · ${d.gbKeys.length} gearbox mengirim data (${escapeHTML(d.gbKeys.join(', '))}) · terakhir ${formatAgo(d.lastSeen)}${online}</small>
+                    <small>Area ${escapeHTML(d.area)} · ${d.gbKeys.length} motor mengirim data (${escapeHTML(d.gbKeys.join(', '))}) · terakhir ${formatAgo(d.lastSeen)}${online}</small>
                 </div>
-                <button class="device-btn primary" data-id="${escapeHTML(d.craneId)}" onclick="activateDevice(this.dataset.id)"><i class="fa-solid fa-power-off"></i> Aktifkan</button>
-                <button class="device-btn" data-id="${escapeHTML(d.craneId)}" onclick="ignoreDevice(this.dataset.id)">Abaikan</button>
+                <button class="device-btn primary" data-id="${escapeHTML(d.id)}" onclick="activateDevice(this.dataset.id)"><i class="fa-solid fa-power-off"></i> Aktifkan</button>
+                <button class="device-btn" data-id="${escapeHTML(d.id)}" onclick="ignoreDevice(this.dataset.id)">Abaikan</button>
             </div>`;
     }).join('') + newGearboxes.map(d => `
             <div class="device-item">
                 <i class="fa-solid fa-circle-info"></i>
                 <div class="device-text">
-                    <div><strong>${escapeHTML(d.craneId)}</strong> mengirim gearbox yang belum terdaftar: ${escapeHTML(d.unknownGearboxes.join(', '))}</div>
+                    <div><strong>${escapeHTML(d.id)}</strong> mengirim motor yang belum terdaftar: ${escapeHTML(d.unknownGearboxes.join(', '))}</div>
                     <small>Datanya tercatat, tapi belum tampil &amp; belum dipantau alarm.</small>
                 </div>
-                <button class="device-btn primary" data-id="${escapeHTML(d.craneId)}" onclick="activateDevice(this.dataset.id)"><i class="fa-solid fa-plus"></i> Tambahkan</button>
+                <button class="device-btn primary" data-id="${escapeHTML(d.id)}" onclick="activateDevice(this.dataset.id)"><i class="fa-solid fa-plus"></i> Tambahkan</button>
                 <a class="device-btn" href="pengaturan.html">Pengaturan</a>
-            </div>`).join('');
+            </div>`).join('') + conflicts.map(d => {
+                const pairs = Object.entries(d.conflicts).filter(([, c]) => c.with > d.id);
+                return `
+            <div class="device-item">
+                <i class="fa-solid fa-triangle-exclamation text-warning"></i>
+                <div class="device-text">
+                    <div><strong>Key motor bentrok:</strong> ${pairs.map(([k, c]) => `<strong>${escapeHTML(k)}</strong> dikirim oleh ${escapeHTML(d.id)} DAN ${escapeHTML(c.with)}`).join('; ')}</div>
+                    <small>Dua sensor berbeda tercampur jadi satu motor. Beri nomor motor yang berbeda di config.h salah satu ESP32 (MOTOR_AWAL), lalu flash ulang.</small>
+                </div>
+            </div>`;
+            }).join('');
 }
 
 async function postJson(url, body) {
@@ -1363,12 +1829,33 @@ async function ignoreDevice(craneId) {
     }
 }
 
+// ============================================================
+// JAM REAL-TIME DI HEADER (dashboard utama & modal Overview)
+// ============================================================
+function startLiveClock() {
+    const clockEls = [document.getElementById('liveClock'), document.getElementById('ovLiveClock')].filter(Boolean);
+    if (clockEls.length === 0) return;
+
+    function tick() {
+        const now = new Date(nowMs());
+        const tanggal = now.toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric', timeZone: WIB_TZ });
+        const jam = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: WIB_TZ });
+        clockEls.forEach(el => { el.innerHTML = `<i class="fa-solid fa-clock"></i> ${tanggal} &bull; ${jam}`; });
+    }
+
+    tick();
+    setInterval(tick, 1000);
+}
+
 window.onload = async () => {
+    await syncServerClock();
+    setInterval(syncServerClock, 5 * 60 * 1000);
     await loadSettings();
     generateInitialData();
     await hydrateFromServerState();
     renderAccordion();
     startLiveTimers();
+    startLiveClock();
     connectMQTT();
     connectAlarmStream();
 };

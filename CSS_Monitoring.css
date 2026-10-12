@@ -1,4 +1,4 @@
-* {
+﻿* {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
@@ -11,74 +11,423 @@ body {
     padding: 20px;
 }
 
+@media (max-width: 640px) {
+    /* Padding halaman lebih hemat di layar HP - 20px kiri-kanan kebuangan
+       cukup banyak dari layar yang cuma ~360-400px lebar */
+    body { padding: 12px; }
+
+    /* Safari/Chrome di iOS otomatis nge-zoom kalau input yang di-fokus
+       font-size-nya < 16px - semua textbox/dropdown di web app ini dikecilkan
+       ke 0.8-0.9rem (~13-14px) buat layar desktop, jadi WAJIB dinaikkan lagi
+       khusus di HP supaya fokus ke input tidak bikin halaman tiba-tiba zoom. */
+    input, select, textarea { font-size: 16px; }
+}
+
+/* BADGE LOGIN/LOGOUT - dipojok kanan atas semua halaman yang wajib login */
+.auth-bar {
+    position: fixed;
+    top: 10px;
+    right: 12px;
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 999px;
+    padding: 5px 8px 5px 12px;
+    font-size: 0.78rem;
+    color: #94a3b8;
+}
+
+.auth-bar button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: transparent;
+    border: none;
+    color: #cbd5e1;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.auth-bar button:hover { background: #334155; color: #f87171; }
+
+@media (max-width: 640px) {
+    /* Badge akun dikecilkan (nama akun disembunyikan, cukup ikon + tombol
+       Keluar) supaya tidak makan banyak tempat, dan halaman diberi sedikit
+       jarak ekstra di atas supaya badge yang mengambang ini tidak menutupi
+       baris pertama judul header di layar sempit. */
+    .auth-bar { padding: 5px 6px 5px 8px; font-size: 0.7rem; }
+    .auth-bar strong { display: none; }
+    body { padding-top: 46px; }
+    /* Dashboard: badge sudah masuk header, jadi jarak ekstra tidak perlu */
+    body:has(#authSlot) { padding-top: 12px; }
+}
+
 .app-container {
     max-width: 1400px;
     margin: 0 auto;
 }
 
-/* HEADER LAYOUT */
+/* HEADER LAYOUT - 3 lapis: judul, strip indikator, lalu menu + ringkasan status
+   (dipakai index.html; laporan.html & pengaturan.html cuma pakai 1 child jadi
+   flex-direction: column ini tidak berpengaruh ke urutannya) */
 .main-header {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
     margin-bottom: 24px;
-    flex-wrap: wrap;
-    gap: 16px;
 }
 
-.header-title h1 {
-    font-size: 1.5rem;
-    color: #38bdf8;
-    display: flex;
+/* Cuma dipakai index.html - judul, strip indikator & menu jadi rata tengah.
+   laporan.html & pengaturan.html TIDAK pakai class ini, jadi tetap rata kiri. */
+.dashboard-header {
+    align-items: stretch;
+    text-align: left;
+}
+
+/* Baris judul: judul di TENGAH halaman, badge akun di kanan (menyatu di header, tidak
+   mengambang). Tiga kolom: kosong | judul | badge. Kolom kiri & kanan sama lebar (1fr),
+   jadi judul benar-benar di tengah walau badge-nya lebar. */
+.header-title-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    gap: 10px;
-}
-
-.header-title p {
-    color: #64748b;
-    font-size: 0.9rem;
-    margin-top: 4px;
-}
-
-/* STATS CARDS */
-.header-stats {
-    display: flex;
-    flex-wrap: wrap;
     gap: 12px;
 }
 
+.header-title-row .header-title-text {
+    grid-column: 2;
+    justify-content: center;
+    text-align: center;
+}
+
+.header-title-row #authSlot {
+    grid-column: 3;
+    justify-self: end;
+}
+
+#authSlot .auth-bar {
+    position: static;
+    flex-shrink: 0;
+}
+
+/* pengaturan.html & laporan.html: baris atas header (tombol kembali + badge akun)
+   sejajar kiri-kanan, badge ikut mengalir dengan halaman (BUKAN mengambang fixed)
+   supaya tidak pernah menimpa isi tabel yang lewat di bawahnya saat discroll. */
+.header-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+/* Layar sedang: judul + badge sudah tidak muat sejajar secara simetris, jadi badge turun
+   ke barisnya sendiri (kanan), judul tetap di tengah di bawahnya */
+@media (max-width: 1180px) {
+    .header-title-row { grid-template-columns: 1fr; }
+    .header-title-row #authSlot { grid-column: 1; grid-row: 1; }
+    .header-title-row .header-title-text { grid-column: 1; grid-row: 2; }
+}
+
+/* HP: badge akun sudah kecil (nama disembunyikan), jadi kembali sebaris dengan judul */
+@media (max-width: 640px) {
+    .header-title-row { grid-template-columns: 1fr auto; }
+    .header-title-row #authSlot { grid-column: 2; grid-row: 1; }
+    .header-title-row .header-title-text { grid-column: 1; grid-row: 1; }
+}
+
+.header-title-text {
+    font-size: 1.4rem;
+    color: #f8fafc;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: -0.01em;
+}
+
+.header-title-text i { color: #38bdf8; }
+
+/* Dipakai laporan.html & pengaturan.html (judul + subjudul sederhana, tanpa strip indikator) */
+.header-title h1 {
+    font-size: 1.4rem;
+    color: #f8fafc;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: -0.01em;
+}
+
+.header-title h1 i { color: #38bdf8; }
+
+.header-title p {
+    color: #94a3b8;
+    font-size: 0.85rem;
+    margin-top: 8px;
+}
+
+/* STRIP INDIKATOR: plant, jam & status koneksi, semuanya di tengah; garis tipis di atas
+   supaya jelas terpisah dari judul */
+.header-indicators {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    padding-top: 10px;
+    border-top: 1px solid #1e293b;
+}
+
+.header-meta-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.header-meta-right {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.meta-sep { color: #334155; font-size: 0.7rem; }
+
+.plant-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #cbd5e1;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.plant-name i { font-size: 0.75rem; color: #64748b; line-height: 1; }
+
+.live-clock {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #cbd5e1;
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.live-clock i { font-size: 0.75rem; color: #38bdf8; line-height: 1; }
+
+.live-clock--overview {
+    font-size: 0.8rem;
+    color: #cbd5e1;
+    white-space: nowrap;
+}
+
+/* INDIKATOR KONEKSI BROKER */
+.conn-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px 3px 8px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: rgba(148, 163, 184, 0.08);
+    border: 1px solid transparent;
+}
+
+.conn-pill i { font-size: 0.45rem; line-height: 1; }
+.conn-pill small { opacity: 0.65; font-weight: 500; }
+.conn-up { color: #34d399; background: rgba(16, 185, 129, 0.12); }
+.conn-connecting { color: #fbbf24; background: rgba(245, 158, 11, 0.12); }
+.conn-down { color: #f87171; background: rgba(239, 68, 68, 0.12); }
+
+/* ============================================================
+   MENU NAVIGASI + RINGKASAN STATUS - dua kartu terpisah berdampingan
+   ============================================================ */
+/* Susunan header: ringkasan status dulu (info terpenting, sekali lihat), lalu
+   menu navigasi. Keduanya lebar penuh & rata - tidak lagi berdampingan yang
+   bikin salah satunya melar / kartu jadi yatim di baris kedua. */
+.header-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    align-items: stretch;
+}
+
+@media (max-width: 900px) {
+    .header-stats { grid-template-columns: minmax(0, 1fr); }
+}
+
+.stat-panel {
+    display: flex;
+    align-items: stretch;
+    flex-wrap: wrap;
+    gap: 8px;
+    background: #141c2e;
+    border: 1px solid #263449;
+    border-radius: 12px;
+    padding: 10px;
+}
+
+/* Kiri: menu navigasi 3 kolom x 2 baris. Kanan: 6 kartu status 3 kolom x 2
+   baris. Sama-sama 3x2 supaya tinggi kedua kotak sama & rapi berdampingan.
+   (minmax(0,..) supaya isi yang panjang tidak membuat kolom meluber) */
+.actions-panel,
+.metrics-panel {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    align-content: center;
+}
+
+/* Akun viewer cuma punya 2 kartu menu (Alarm & Overview - sisanya disembunyikan
+   lewat .no-viewer). Grid 3 kolom bawaan nyisain 1 kolom kosong yang bikin
+   timpang, jadi khusus viewer turun ke 2 kolom supaya kartunya pas penuh. */
+html[data-role="viewer"] .actions-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.metrics-panel .metric-card { min-width: 0; }
+/* Layar lebar: ikon di samping label. Isi kartu dimulai dari titik yang SAMA di tiap kolom
+   (bukan ditengahkan per kartu), supaya ikon-ikonnya sejajar walau panjang label beda-beda.
+   Jarak kiri dalam persen dari lebar sel, jadi kelompok ikon+label tetap terlihat di tengah. */
+.actions-panel .action-card {
+    justify-content: flex-start;
+    padding-left: clamp(10px, 14%, 96px);
+}
+
+/* Layar sedang (dua kartu berdampingan, tiap sel sempit): ikon di atas, label di bawah,
+   ditengahkan - otomatis sejajar per kolom dan tidak pernah meluber. Di bawah 901px kartu
+   menu kembali lebar penuh, jadi susunan di samping cukup lagi. */
+@media (min-width: 901px) and (max-width: 1300px) {
+    .actions-panel .action-card {
+        flex-direction: column;
+        justify-content: center;
+        gap: 6px;
+        padding: 10px 4px;
+        text-align: center;
+    }
+    .actions-panel .action-card .stat-label { white-space: normal; }
+    .actions-panel .action-card .action-text { text-align: center; }
+}
+
+/* ---- Kartu navigasi (Alarm/Pengaturan/Laporan/Overview) ---- */
+.action-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    border-radius: 9px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.action-card:hover {
+    background: #1e293b;
+    border-color: #334155;
+}
+
+.action-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: rgba(56, 189, 248, 0.12);
+    color: #38bdf8;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+
+.action-icon--alarm {
+    background: rgba(148, 163, 184, 0.12);
+    color: #94a3b8;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+
+.action-card .stat-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #cbd5e1;
+    margin-top: 0;
+    white-space: nowrap;
+}
+
+.action-card .stat-value {
+    font-size: 1rem;
+    line-height: 1;
+    margin-bottom: 1px;
+}
+
+/* ---- Kartu status dasar (dipakai juga oleh modal Overview) ---- */
 .stat-card {
     background: #1e293b;
     border: 1px solid #334155;
-    border-radius: 8px;
+    border-radius: 9px;
     padding: 10px 18px;
     text-align: center;
     min-width: 90px;
-    transition: all 0.2s ease;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 
 .stat-card:hover {
-    background: #334155;
-    border-color: #38bdf8;
-    transform: translateY(-2px);
+    background: #263449;
+    border-color: #3b4a63;
+    transform: translateY(-1px);
 }
 
 .stat-card.active {
     border-color: #38bdf8;
-    background: #334155;
-    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+    background: #263449;
+    box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.35) inset;
 }
 
+/* ---- Kartu ringkasan status di header dashboard: rata kiri + dot indikator ---- */
+.metric-card {
+    position: relative;
+    text-align: left;
+    padding: 8px 16px;
+    min-width: 84px;
+}
+
+.metric-dot {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+}
+
+.dot-normal { background: #10b981; }
+.dot-warning { background: #f59e0b; }
+.dot-danger { background: #ef4444; }
+.dot-offline { background: #cbd5e1; }
+.dot-not-installed { background: #64748b; }
+
 .stat-value {
-    font-size: 1.25rem;
-    font-weight: bold;
+    font-size: 1.35rem;
+    font-weight: 700;
     color: #f8fafc;
+    line-height: 1.1;
 }
 
 .stat-label {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     color: #94a3b8;
-    margin-top: 2px;
+    margin-top: 3px;
 }
 
 .text-normal { color: #10b981; }
@@ -87,31 +436,24 @@ body {
 .text-offline { color: #cbd5e1; }
 .text-not-installed { color: #64748b; }
 
-/* INDIKATOR KONEKSI BROKER */
-.conn-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin-left: 10px;
-    padding: 2px 8px;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    border: 1px solid #334155;
-}
-
-.conn-pill i { font-size: 0.5rem; }
-.conn-up { color: #34d399; border-color: #10b98140; }
-.conn-connecting { color: #fbbf24; border-color: #f59e0b40; }
-.conn-down { color: #f87171; border-color: #ef444440; }
-
 /* SEARCH TOOLBAR */
+/* Toolbar 3 kolom: search di kiri, tombol khusus master (Deadman Switch) di
+   TENGAH tapi tetap sebaris, kolom kanan kosong. Search-box punya lebar
+   minimum sendiri supaya tidak menyusut walau ada tombol di sebelahnya. */
 .toolbar {
     margin-bottom: 20px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
 }
 
 .search-box {
     position: relative;
+    width: 100%;
+    min-width: 280px;
     max-width: 350px;
+    justify-self: start;
 }
 
 .search-box i {
@@ -134,6 +476,193 @@ body {
 
 .search-box input:focus {
     border-color: #38bdf8;
+}
+
+/* MODAL KONFIRMASI GENERIK (mis. Deadman Switch) - di tengah layar, 2 tombol besar */
+.confirm-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    z-index: 3000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.confirm-modal-overlay.active { display: flex; }
+
+.confirm-modal {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 14px;
+    width: 100%;
+    max-width: 380px;
+    padding: 28px 24px;
+    text-align: center;
+}
+
+.confirm-modal-icon {
+    width: 52px;
+    height: 52px;
+    margin: 0 auto 16px;
+    border-radius: 50%;
+    background: #7f1d1d55;
+    border: 1px solid #ef444488;
+    color: #f87171;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+}
+
+.confirm-modal-text {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #f8fafc;
+    margin-bottom: 24px;
+}
+
+/* Teks peringatan tambahan di bawah pesan utama (opsional) */
+.confirm-modal-detail {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: #fca5a5;
+    background: #7f1d1d33;
+    border: 1px solid #ef444455;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin: -8px 0 22px;
+}
+
+/* Kolom "ketik HAPUS untuk melanjutkan" */
+.confirm-modal-type { margin: 0 0 20px; text-align: left; }
+.confirm-modal-type label { display: block; font-size: 0.8rem; color: #cbd5e1; margin-bottom: 6px; }
+.confirm-modal-type input {
+    width: 100%;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 12px;
+    color: #f8fafc;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-align: center;
+}
+.confirm-modal-type input:focus { outline: none; border-color: #ef4444; }
+
+.confirm-modal-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.confirm-modal-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.confirm-modal-btn {
+    flex: 1;
+    padding: 14px;
+    font-size: 1rem;
+    font-weight: 700;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.confirm-modal-btn--cancel { background: #334155; color: #cbd5e1; }
+.confirm-modal-btn--cancel:hover { background: #475569; }
+.confirm-modal-btn--ok { background: #dc2626; color: #fff; }
+.confirm-modal-btn--ok:hover { background: #ef4444; }
+
+/* POP-UP PRANK setelah Deadman Switch dikonfirmasi */
+.prank-modal { border-color: #facc15; animation: prank-pop 0.35s ease-out; }
+.prank-modal-emoji { font-size: 56px; line-height: 1; margin-bottom: 12px; animation: prank-shake 0.6s ease-in-out 2; }
+.prank-modal-title {
+    font-size: 2.4rem;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    color: #facc15;
+    margin-bottom: 10px;
+}
+.prank-modal-text { font-size: 0.95rem; color: #cbd5e1; margin-bottom: 22px; }
+.prank-modal-btn { background: #facc15; color: #1e293b; }
+.prank-modal-btn:hover { background: #fde047; }
+
+@keyframes prank-pop {
+    0% { transform: scale(0.5); opacity: 0; }
+    70% { transform: scale(1.08); opacity: 1; }
+    100% { transform: scale(1); }
+}
+@keyframes prank-shake {
+    0%, 100% { transform: rotate(0); }
+    25% { transform: rotate(-15deg); }
+    75% { transform: rotate(15deg); }
+}
+
+/* Tombol khusus akun master di sebelah search-box (mis. Deadman Switch) */
+.deadman-switch-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #7f1d1d;
+    border: 1px solid #ef4444;
+    color: #fecaca;
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 10px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.deadman-switch-btn:hover { background: #991b1b; }
+
+@media (max-width: 640px) {
+    .header-title-text,
+    .header-title h1 { font-size: 1.1rem; }
+
+    /* Strip plant/jam & status koneksi: tetap di tengah, dan kalau tidak muat
+       satu baris, turun ke baris berikutnya (juga di tengah) */
+    .header-indicators { justify-content: center; }
+
+    /* Kartu navigasi (Alarm/Pengaturan/Laporan/dst) & ringkasan status:
+       masing-masing ambil lebar penuh sendiri-sendiri, jangan berdampingan
+       sempit-sempitan */
+    .actions-panel,
+    .metrics-panel { flex: 1 1 100%; }
+
+    /* Menu navigasi jadi grid rapi 3 kolom (ikon di atas, label di bawah)
+       daripada baris horizontal yang gampang kepotong di layar sempit */
+    .actions-panel {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+    }
+    .actions-panel .action-card {
+        flex-direction: column;
+        justify-content: center;
+        gap: 6px;
+        padding: 10px 4px;
+        text-align: center;
+    }
+    .actions-panel .action-card .stat-label { white-space: normal; font-size: 0.72rem; }
+    .actions-panel .alarm-stat { grid-column: span 3; flex-direction: row; }
+
+    /* Sama seperti di layar lebar: viewer cuma 2 kartu, jadi 2 kolom rapi
+       (bukan Alarm full-width + Overview sendirian di bawahnya). */
+    html[data-role="viewer"] .actions-panel { grid-template-columns: repeat(2, 1fr); }
+    html[data-role="viewer"] .actions-panel .alarm-stat { grid-column: span 1; flex-direction: column; }
+
+    /* Ringkasan status (Total/Normal/Warning/dst): 3 kolom rapi */
+    .metrics-panel { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .metrics-panel .metric-card { min-width: 0; }
+
+    /* Toolbar: search-box lebar penuh, tombol Deadman Switch di bawahnya
+       (bukan berdampingan sempit) */
+    .toolbar { grid-template-columns: minmax(0, 1fr); }
+    .search-box { max-width: none; min-width: 0; }
+    .deadman-switch-btn { justify-content: center; }
 }
 
 /* ACCORDION & CARDS */
@@ -181,15 +710,31 @@ body {
     font-size: 1.2rem;
 }
 
+.crane-icon svg { width: 19px; height: 34px; display: block; }
+
 .crane-name {
     font-weight: bold;
     font-size: 1rem;
 }
 
+/* Nomor urut crane: teks polos, tanpa kotak/border - menyatu alami di depan nama
+   crane, dipisah titik tengah, tidak bersaing secara visual dengan judulnya. */
+.crane-no-tag {
+    color: #f8fafc;
+    font-size: 1em;
+    font-weight: inherit;
+    font-variant-numeric: tabular-nums;
+    margin-right: 8px;
+}
+.crane-no-tag::after { content: '\00b7'; margin-left: 8px; color: #475569; }
+
 .crane-sub {
     font-size: 0.8rem;
     color: #94a3b8;
 }
+
+/* Cuma ikon pin lokasi yang merah - teks nama plant & jumlah gearbox tetap abu-abu netral */
+.crane-sub .fa-location-dot { color: #f87171; line-height: 1; }
 
 .crane-header-status {
     display: flex;
@@ -297,11 +842,21 @@ body {
     padding: 14px;
 }
 
+/* Aksen status: garis tipis di sisi atas kartu (inset shadow, jadi tidak mengubah
+   ukuran/layout kartu) - kartu bermasalah kelihatan sekilas dari jauh */
+.gearbox-card.gb-normal { box-shadow: inset 0 3px 0 #34d399; }
+.gearbox-card.gb-low { box-shadow: inset 0 3px 0 #22d3ee; }
+.gearbox-card.gb-warning { box-shadow: inset 0 3px 0 #f59e0b; }
+.gearbox-card.gb-danger { box-shadow: inset 0 3px 0 #ef4444; }
+.gearbox-card.gb-offline { box-shadow: inset 0 3px 0 #fbbf24; }
+.gearbox-card.gb-fault { box-shadow: inset 0 3px 0 #c084fc; }
+
 .gearbox-card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 10px;
+    position: relative;
 }
 
 .gearbox-name {
@@ -309,11 +864,15 @@ body {
     font-size: 0.9rem;
 }
 
+/* Kelas isolasi motor: teks biasa (bukan pil) di baris batas suhu, persis di
+   samping "Max ... °C" - ukuran sama dengan teks batas di sebelahnya, warna putih */
+.gb-class-text { color: #f8fafc; }
+
 .temperature-display {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    margin-bottom: 12px;
+    margin-bottom: 4px;
 }
 
 .temp-label {
@@ -331,7 +890,7 @@ body {
     position: relative;
     height: 120px;
     width: 100%;
-    margin-top: 10px;
+    margin-top: 12px;
 }
 
 .chart-container canvas {
@@ -340,7 +899,10 @@ body {
     height: 100% !important;
 }
 
-/* Keterangan kondisi data di bawah angka suhu */
+/* Keterangan kondisi data di bawah angka suhu - dikelompokkan rapat dengan
+   .temperature-display di atasnya (sama-sama tentang pembacaan saat ini),
+   dipisah agak renggang dari .gearbox-limits di bawahnya (itu data ambang
+   batas/referensi, bukan tentang pembacaan sekarang). */
 .gearbox-meta {
     display: flex;
     align-items: center;
@@ -348,13 +910,73 @@ body {
     min-height: 1.1em;
     font-size: 0.72rem;
     color: #64748b;
+    margin-bottom: 8px;
 }
+
+.gearbox-sparepart {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.8rem;
+    line-height: 1;
+    color: #cbd5e1;
+    margin-bottom: 8px;
+}
+
+.gearbox-sparepart i { font-size: 0.7rem; line-height: 1; }
 
 .gb-offline .gearbox-meta { color: #fbbf24; }
 .gb-fault .gearbox-meta { color: #c084fc; }
+
+/* "Update terakhir baru saja" cuma muncul pas sensornya normal/warning/danger
+   (bukan offline/fault - itu pakai ikon lain) - titiknya dibuat hijau, teksnya
+   tetap abu-abu redup seperti biasa */
+.gb-normal .gearbox-meta i.fa-circle,
+.gb-low .gearbox-meta i.fa-circle,
+.gb-warning .gearbox-meta i.fa-circle,
+.gb-danger .gearbox-meta i.fa-circle { color: #22c55e; font-size: 0.55em; }
 .gb-offline .temp-value,
-.gb-not-installed .temp-value { color: #64748b; }
+.gb-not-installed .temp-value,
+.gb-disabled .temp-value { color: #64748b; }
+.gearbox-card.gb-disabled { opacity: 0.55; }
+.gb-disabled .gearbox-meta { color: #64748b; }
+/* Pengaturan: kolom sakelar aktif/nonaktif motor, dan baris yang dimatikan diredupkan */
+.settings-table-fixed .col-active { width: 56px; }
+.settings-table-fixed td.col-active { text-align: center; }
+.settings-table tr.gb-row-off td:not(.col-active):not(.col-del-cell) { opacity: 0.45; }
 .gb-fault .temp-value { color: #c084fc; }
+/* Crane dengan beberapa ESP32: label ESP tempat sensor motor ini terpasang */
+.gb-esp-tag {
+    margin-left: auto; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+    padding: 1px 7px; border: 1px solid #263349; border-radius: 999px; background: #0e1627;
+    color: #7dd3fc; font-size: 0.66rem; font-weight: 600;
+}
+.gb-esp-tag i { font-size: 0.9em; }
+.gb-esp-tag--off { color: #f87171; border-color: #7f1d1d; }
+/* Pengaturan: daftar ESP32 per crane */
+.node-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; font-size: 0.8rem; }
+.node-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.node-row code { background: #0b1220; border: 1px solid #263349; border-radius: 4px; padding: 0 6px; color: #7dd3fc; font-size: 0.72rem; }
+.ota-node-title { font-size: 0.78rem; font-weight: 700; color: #cbd5e1; margin: 10px 0 4px; display: flex; align-items: center; gap: 6px; }
+.ota-node-title code { background: #0b1220; border: 1px solid #263349; border-radius: 4px; padding: 0 6px; color: #7dd3fc; font-size: 0.72rem; font-weight: 400; }
+
+@media (max-width: 640px) {
+    /* Header crane: biarkan wrap ke bawah daripada dipaksa muat sebaris
+       (nama crane panjang + badge status + tombol unduh + chevron) */
+    .crane-header { padding: 12px; flex-wrap: wrap; gap: 10px 12px; }
+    .crane-icon { width: 34px; height: 34px; font-size: 1rem; }
+    .crane-header-status { flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+    .summary-temps { font-size: 0.78rem; padding: 5px 9px; }
+
+    /* Grid gearbox dipaksa 1 kolom penuh (bukan auto-fill minmax 280px) -
+       di HP yang lebar layarnya di bawah ~320px efektif, minmax 280px bisa
+       memaksa overflow horizontal */
+    .gearbox-grid { grid-template-columns: 1fr; gap: 12px; }
+    .crane-body { padding: 12px; }
+
+    /* Target sentuh tombol ikon kecil diperbesar (rekomendasi umum >= 40px) */
+    .btn-download-log { width: 40px; height: 40px; }
+}
 
 .chart-placeholder {
     position: absolute;
@@ -400,12 +1022,6 @@ body {
     margin-bottom: 16px;
 }
 
-/* OVERVIEW BUTTON (header stat card) */
-.btn-overview .stat-value {
-    color: #38bdf8;
-    font-size: 1.1rem;
-}
-
 /* OVERVIEW MODAL */
 .overview-modal-overlay {
     display: none;
@@ -447,16 +1063,30 @@ body {
 
 .overview-modal-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 16px 20px;
+    gap: 20px;
+    padding: 12px 20px;
     border-bottom: 1px solid #334155;
-    gap: 16px;
     flex-wrap: wrap;
 }
 
+.overview-header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    flex: 1;
+}
+
+.overview-header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+}
+
 .overview-modal-header h2 {
-    font-size: 1.1rem;
+    font-size: 1.15rem;
     color: #38bdf8;
     display: flex;
     align-items: center;
@@ -464,13 +1094,28 @@ body {
     white-space: nowrap;
 }
 
+.overview-header-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.overview-header-meta .live-clock {
+    font-size: 0.8rem;
+    color: #94a3b8;
+}
+
+.overview-modal-header .conn-pill {
+    font-size: 0.65rem;
+    padding: 2px 8px 2px 6px;
+}
+
 .overview-header-stats {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    flex: 1;
     justify-content: flex-end;
-    margin-right: 16px;
 }
 
 .overview-header-stats .stat-card {
@@ -496,6 +1141,7 @@ body {
     height: 32px;
     border-radius: 6px;
     transition: all 0.2s ease;
+    flex-shrink: 0;
 }
 
 .overview-close-btn:hover {
@@ -504,16 +1150,54 @@ body {
 }
 
 .overview-modal-body {
-    padding: 20px;
-    overflow-y: auto;
+    padding: 16px 20px;
+    overflow: hidden;
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
-/* GRID OVERVIEW - kolom statis (3), tinggi menyesuaikan konten asli (sudah seragam per kartu) */
+/* GRID OVERVIEW - kolom statis (3), baris otomatis membagi RATA sisa tinggi layar
+   (grid-auto-rows: 1fr) supaya berapa pun jumlah gearbox-nya, selalu pas satu layar
+   tanpa scroll. Kartu & chart di dalamnya ikut menyesuaikan (lihat aturan di bawah). */
 .overview-gearbox-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
+    grid-auto-rows: 1fr;
     gap: 16px;
+    flex: 1;
+    min-height: 0;
+}
+
+.overview-gearbox-grid .gearbox-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 10px 14px;
+}
+
+/* Semua elemen kartu tetap ukuran alami (nama, suhu, meta, limit)... */
+.overview-gearbox-grid .gearbox-card > *:not(.chart-container) {
+    flex-shrink: 0;
+}
+
+/* ...kecuali grafiknya, yang melar/menyusut mengisi sisa tinggi kartu */
+.overview-gearbox-grid .chart-container {
+    flex: 1 1 auto;
+    min-height: 40px;
+    height: auto;
+    margin-top: 6px;
+}
+
+.overview-crane-title {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    margin-bottom: 12px;
 }
 
 .overview-crane-title h3 {
@@ -524,7 +1208,10 @@ body {
 .overview-crane-title p {
     font-size: 0.85rem;
     color: #94a3b8;
-    margin-bottom: 16px;
+}
+
+.overview-crane-title .summary-temps {
+    white-space: nowrap;
 }
 
 .overview-gearbox-block {
@@ -595,6 +1282,77 @@ body {
     font-size: 0.85rem;
     color: #94a3b8;
 }
+
+@media (max-width: 768px) {
+    /* Mode Overview dirancang buat layar TV/monitor besar - grid 3 kolom yang
+       tinggi tiap barisnya "1fr" (mengisi RATA sisa layar, lihat komentar di
+       atas) dan grafik yang auto-grow (flex:1 1 auto) mengandalkan tinggi
+       kontainer yang jelas. Di HP tidak ada "1 layar TV" buat diisi rata, jadi
+       semua itu dilepas total dan kartunya dibuat mengikuti pola kartu
+       gearbox BIASA yang sudah rapi (grafik tinggi tetap 120px, kartu
+       menyesuaikan konten, halaman yang scroll - bukan gridnya).
+    */
+    .overview-modal-body { overflow-y: auto; padding: 12px; }
+    .overview-gearbox-grid {
+        display: flex;
+        flex-direction: column;
+        grid-template-columns: unset;
+        flex: none;
+        gap: 12px;
+    }
+    .overview-gearbox-grid .gearbox-card {
+        display: block;
+        flex: none;
+        min-height: 0;
+        padding: 14px;
+    }
+    .overview-gearbox-grid .chart-container {
+        flex: none;
+        height: 120px;
+        min-height: 0;
+        margin-top: 10px;
+    }
+
+    .overview-crane-title { margin-bottom: 10px; }
+
+    /* Header modal: display:block polos (bukan flex row/column) - semua anak
+       jadi kotak biasa lebar penuh, tidak ada lagi hitung-hitungan flex yang
+       bisa salah. Tombol tutup dilepas dari alur (position:absolute) supaya
+       tidak perlu berbagi baris dengan apa pun. */
+    .overview-modal-header { display: block; padding: 10px 44px 10px 14px; position: relative; }
+    .overview-modal-header h2 { font-size: 1rem; white-space: normal; }
+    .overview-header-left { width: 100%; }
+    .overview-header-meta { margin-top: 6px; }
+    .overview-header-right { display: block; width: 100%; margin-top: 10px; }
+
+    /* Kartu ringkasan (Total/Normal/Warning/dst): grid 3 kolom. PENTING pakai
+       minmax(0, 1fr), BUKAN cuma "1fr" - "1fr" polos diam-diam tetap punya
+       lebar minimum mengikuti isi konten (mis. teks "Belum Terpasang" yang
+       panjang), itu yang sebelumnya bikin kartunya meluber ke luar layar. */
+    .overview-header-stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+        width: 100%;
+    }
+    .overview-header-stats .stat-card {
+        min-width: 0;
+        width: 100%;
+        padding: 6px 4px;
+        overflow: hidden;
+    }
+    .overview-header-stats .stat-value { font-size: 0.85rem; }
+    .overview-header-stats .stat-label {
+        font-size: 0.6rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis; /* teks panjang dipotong "..." - tidak pernah meluber */
+    }
+    .overview-close-btn { position: absolute; top: 10px; right: 10px; }
+    .overview-modal-footer { padding: 10px 14px; }
+    .overview-nav-btn-label { display: none; } /* ikon panah saja, teks "Sebelumnya/Berikutnya" disembunyikan */
+    .overview-close-btn { width: 40px; height: 40px; }
+}
 /* ============================================================
    ALARM
    ============================================================ */
@@ -603,8 +1361,10 @@ body {
 .alarm-stat .stat-value { color: #94a3b8; }
 .alarm-stat.alarm-flash { border-color: #f59e0b; animation: alarm-pulse-warning 1.2s ease-in-out infinite; }
 .alarm-stat.alarm-flash .stat-value { color: #fbbf24; }
+.alarm-stat.alarm-flash .action-icon--alarm { background: rgba(245, 158, 11, 0.18); color: #fbbf24; }
 .alarm-stat.alarm-danger { border-color: #ef4444; animation-name: alarm-pulse-danger; }
 .alarm-stat.alarm-danger .stat-value { color: #f87171; }
+.alarm-stat.alarm-danger .action-icon--alarm { background: rgba(239, 68, 68, 0.18); color: #f87171; }
 
 @keyframes alarm-pulse-warning {
     0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
@@ -774,7 +1534,8 @@ body.has-alarm-banner .overview-modal-overlay.active .overview-modal { padding-t
 
 .alarm-tabs { display: flex; gap: 4px; padding: 10px 18px 0; border-bottom: 1px solid #334155; }
 
-.alarm-tab {
+.alarm-tab,
+.sessions-tab {
     background: transparent;
     border: none;
     border-bottom: 2px solid transparent;
@@ -784,12 +1545,43 @@ body.has-alarm-banner .overview-modal-overlay.active .overview-modal { padding-t
     font-weight: 600;
 }
 
-.alarm-tab.active { color: #38bdf8; border-bottom-color: #38bdf8; }
+.alarm-tab.active,
+.sessions-tab.active { color: #38bdf8; border-bottom-color: #38bdf8; }
+
+/* Peran "viewer" (akun hasil pengajuan): menu & tombol yang bukan haknya disembunyikan.
+   Cuma tampilan - server yang menolak akses sebenarnya (lihat viewerMayAccess di server.js).
+   Sebelum peran diketahui (auth-ui.js belum selesai) elemennya disembunyikan halus dulu
+   (visibility, bukan display) supaya tata letak tidak melompat. */
+html[data-role="viewer"] .no-viewer { display: none !important; }
+html:not([data-role]) .no-viewer { visibility: hidden; }
 
 .alarm-list { overflow-y: auto; padding: 12px 18px 18px; display: flex; flex-direction: column; gap: 8px; }
 
+/* Panel Sesi & Akun: tinggi TETAP (kira-kira 4 item terlihat), tidak ikut membesar/mengecil
+   mengikuti jumlah data - kelebihan data di-scroll, bukan bikin panel melar. */
+.sessions-search-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 12px 18px 0;
+    padding: 8px 12px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    color: #64748b;
+}
+.sessions-search-row input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #f8fafc;
+    font-size: 0.85rem;
+}
+.alarm-list.sessions-scroll { height: 340px; flex: none; }
+
 .alarm-empty { text-align: center; color: #94a3b8; padding: 40px 10px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
-.alarm-empty i { font-size: 1.6rem; }
+.alarm-empty i { font-size: 1.6rem; line-height: 1; }
 
 .alarm-item {
     display: flex;
@@ -825,6 +1617,23 @@ body.has-alarm-banner .overview-modal-overlay.active .overview-modal { padding-t
 .alarm-ack-btn:hover { background: #7dd3fc; }
 .alarm-acked-label { font-size: 0.75rem; color: #34d399; text-align: right; max-width: 160px; }
 
+/* Pengajuan akun: lencana jumlah di kartu "Sesi Login" + tombol Setujui/Tolak */
+.signup-badge {
+    display: inline-block;
+    min-width: 18px;
+    padding: 1px 6px;
+    margin-left: 4px;
+    border-radius: 999px;
+    background: #ef4444;
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-align: center;
+}
+.signup-actions { display: flex; gap: 6px; flex-shrink: 0; align-items: center; }
+.signup-reject { background: #334155; color: #fca5a5; }
+.signup-reject:hover { background: #7f1d1d; color: #fff; }
+
 .alarm-history-item {
     display: grid;
     grid-template-columns: 110px 150px 1fr;
@@ -854,8 +1663,24 @@ body.has-alarm-banner .overview-modal-overlay.active .overview-modal { padding-t
    ============================================================ */
 .text-fault { color: #c084fc; }
 
-.back-link { color: #38bdf8; text-decoration: none; }
-.back-link:hover { text-decoration: underline; }
+/* Tombol "Kembali ke dashboard" - dipakai di pengaturan.html & laporan.html,
+   gaya sama dengan yang di status.html supaya konsisten di semua halaman. */
+.back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    align-self: flex-start;
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #cbd5e1;
+    text-decoration: none;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: 8px;
+    transition: border-color 0.15s, color 0.15s;
+}
+.back-btn:hover { border-color: #38bdf8; color: #38bdf8; }
 
 .btn-report .stat-value { color: #38bdf8; font-size: 1.1rem; }
 
@@ -1026,12 +1851,16 @@ body.has-alarm-banner .overview-modal-overlay.active .overview-modal { padding-t
 .text-low { color: #22d3ee; }
 .gb-low .temp-value { color: #22d3ee; }
 
-/* "Min 15 · Normal ≤ 70 · Max 80 °C" di tiap kartu gearbox */
+/* "Min 15 · Normal ≤ 70 · Max 80 °C" di tiap kartu gearbox - garis tipis di atas
+   supaya kelihatan sebagai kelompok "data ambang batas/referensi", terpisah
+   secara visual dari kelompok "pembacaan saat ini" (suhu + update terakhir)
+   di atasnya, tanpa menghapus/menyembunyikan teks apa pun. */
 .gearbox-limits {
     display: flex;
     flex-wrap: wrap;
     gap: 2px 10px;
-    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px solid #263349;
     font-size: 0.68rem;
     color: #64748b;
 }
@@ -1055,7 +1884,7 @@ body.has-alarm-banner .overview-modal-overlay.active .overview-modal { padding-t
     padding: 10px 14px;
 }
 
-.device-item > i { color: #38bdf8; font-size: 1.1rem; }
+.device-item > i { color: #38bdf8; font-size: 1.1rem; line-height: 1; }
 .device-text { flex: 1 1 260px; min-width: 0; font-size: 0.88rem; }
 .device-text small { color: #94a3b8; }
 
@@ -1075,6 +1904,15 @@ body.has-alarm-banner .overview-modal-overlay.active .overview-modal { padding-t
 
 .device-btn:hover { border-color: #38bdf8; }
 .device-btn.primary { background: #38bdf8; border-color: #38bdf8; color: #0f172a; font-weight: 700; }
+
+/* Tombol yang dinonaktifkan (mis. Publish sebelum Nama PIC & Versi diisi):
+   tetap terlihat jelas sebagai tombol, tapi jelas tidak bisa diklik */
+.device-btn:disabled,
+.device-btn.primary:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    filter: none;
+}
 
 /* ============================================================
    HALAMAN PENGATURAN (pengaturan.html)
@@ -1166,6 +2004,206 @@ body.has-alarm-banner .overview-modal-overlay.active .overview-modal { padding-t
 
 .settings-toolbar input[type="text"] { max-width: 280px; }
 
+.ota-uploader { margin: 10px 0 12px; }
+
+.ota-dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+    padding: 24px 16px;
+    border: 2px dashed #334155;
+    border-radius: 10px;
+    background: #0f172a;
+    color: #94a3b8;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.ota-dropzone i { font-size: 1.6rem; color: #38bdf8; line-height: 1; }
+.ota-dropzone:hover,
+.ota-dropzone.drag-over { border-color: #38bdf8; background: #0ea5e912; color: #cbd5e1; }
+.ota-dropzone code { color: #7dd3fc; }
+
+/* ---- Kartu OTA per-crane: satu kotak rapi untuk status firmware + upload ---- */
+.ota-crane-block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: #0f172a80;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+}
+
+.ota-status-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 14px;
+}
+
+.ota-status-text {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 6px;
+    font-size: 0.8rem;
+    color: #cbd5e1;
+}
+
+.ota-status-text i { color: #64748b; margin-right: 2px; }
+.ota-status-text small { flex-basis: 100%; color: #64748b; font-size: 0.72rem; }
+
+/* Card status firmware per-crane: baris versi di kiri, tombol aksi (Update/Hapus)
+   rata kanan, rapi walau di layar sempit (wrap ke bawah) */
+.ota-block {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px 16px;
+}
+
+.ota-block-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.ota-block-versions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    color: #cbd5e1;
+}
+
+.ota-block-versions i.fa-microchip { color: #64748b; }
+.ota-block-versions strong { color: #f8fafc; }
+.ota-block-versions small { color: #64748b; }
+.ota-block-arrow { color: #475569; font-size: 0.7rem; }
+.ota-block--uptodate .ota-block-versions strong { color: #34d399; }
+
+.ota-block-meta {
+    font-size: 0.72rem;
+    color: #64748b;
+}
+
+.ota-block-meta strong { color: #94a3b8; }
+
+/* Indikator hasil update firmware (requested/downloading/success/failed/timeout) */
+.ota-progress {
+    margin-top: 8px; padding: 7px 10px; border-radius: 8px; font-size: 0.8rem; font-weight: 600;
+    display: flex; align-items: center; gap: 8px; border: 1px solid transparent; line-height: 1.35;
+}
+.ota-progress i { flex: none; }
+.ota-progress--busy { color: #7dd3fc; background: rgba(56, 189, 248, 0.10); border-color: rgba(56, 189, 248, 0.35); }
+.ota-progress--ok   { color: #4ade80; background: rgba(34, 197, 94, 0.10);  border-color: rgba(34, 197, 94, 0.35); }
+.ota-progress--fail { color: #f87171; background: rgba(239, 68, 68, 0.10);  border-color: rgba(239, 68, 68, 0.35); }
+.ota-progress--warn { color: #fbbf24; background: rgba(245, 158, 11, 0.10); border-color: rgba(245, 158, 11, 0.35); }
+
+.ota-block-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+/* Baris upload: nama file, Nama PIC (wajib), Versi, tombol Publish/batal */
+.ota-upload-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: #cbd5e1;
+}
+
+.ota-upload-row input.ota-pic-input { max-width: 220px; }
+
+/* Versi tidak lagi diisi manual - cuma preview angka yang akan dipakai (dihitung otomatis) */
+.ota-version-preview {
+    font-size: 0.75rem;
+    color: #7dd3fc;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 5px 10px;
+    white-space: nowrap;
+}
+
+/* Riwayat SEMUA upload firmware per crane - dilipat (details/summary), daftar
+   ringkas: versi, nama file, PIC, waktu. Beda dari .ota-block yang cuma
+   menunjukkan firmware yang SEKARANG ter-publish. */
+.ota-history { margin-top: 10px; font-size: 0.78rem; }
+.ota-history summary {
+    cursor: pointer;
+    color: #94a3b8;
+    list-style: none;
+}
+.ota-history summary::-webkit-details-marker { display: none; }
+.ota-history summary::before { content: '\25B8'; color: #64748b; margin-right: 6px; }
+.ota-history[open] summary::before { content: '\25BE'; }
+.ota-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+    padding-left: 14px;
+    border-left: 2px solid #334155;
+}
+.ota-history-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+    color: #94a3b8;
+}
+.ota-history-version { color: #f8fafc; font-weight: 600; }
+.ota-history-file { color: #cbd5e1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+.ota-history-file i, .ota-history-by i { color: #64748b; margin-right: 3px; }
+.ota-history-at { margin-left: auto; color: #64748b; white-space: nowrap; }
+
+.ota-dropzone--mini {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    width: fit-content;
+    max-width: 100%;
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    border: 1px dashed #334155;
+    border-radius: 6px;
+    background: #0f172a;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.ota-dropzone--mini:hover,
+.ota-dropzone--mini.drag-over { border-color: #38bdf8; background: #0ea5e912; color: #cbd5e1; }
+.ota-dropzone--mini i { font-size: 0.8rem; color: #38bdf8; line-height: 1; }
+
+.ota-cancel-btn {
+    background: transparent;
+    border: none;
+    color: #64748b;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 4px 6px;
+    line-height: 1;
+}
+
+.ota-cancel-btn:hover { color: #f87171; }
+
 .check-inline { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; color: #cbd5e1; cursor: pointer; }
 .check-inline.big { font-weight: 600; color: #f8fafc; }
 
@@ -1176,11 +2214,17 @@ body.has-alarm-banner .overview-modal-overlay.active .overview-modal { padding-t
     margin-bottom: 10px;
 }
 
+/* Grid dengan lebar kolom TETAP - supaya "crane-05 · Plant CCC · 5 gearbox" selalu
+   mulai di titik x yang sama persis di tiap baris, tidak geser-geser ikut panjang
+   nama crane (dulu cuma flex+gap, jadi "meliuk" pas discroll lihat banyak baris). */
 .crane-settings > summary {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    /* Lebar KOLOM TETAP (bukan minmax) - tiap <summary> adalah grid terpisah-pisah
+       (bukan satu tabel bersama), jadi minmax bisa dihitung beda-beda per baris
+       tergantung isinya sendiri. Angka pas = sejajar persis di semua baris. */
+    grid-template-columns: 14px auto 230px minmax(220px, 1fr) auto;
     align-items: center;
-    gap: 6px 12px;
+    gap: 6px 14px;
     padding: 12px 14px;
     cursor: pointer;
     list-style: none;
@@ -1189,50 +2233,221 @@ body.has-alarm-banner .overview-modal-overlay.active .overview-modal { padding-t
 .crane-settings > summary::-webkit-details-marker { display: none; }
 .crane-settings > summary::before { content: '\25B8'; color: #64748b; }
 .crane-settings[open] > summary::before { content: '\25BE'; }
-.crane-summary-name { font-weight: 600; }
-.crane-settings > summary small { color: #94a3b8; flex: 1; }
+.crane-summary-name {
+    font-weight: 600;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.crane-settings > summary small { color: #94a3b8; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 760px) {
+    /* Layar sempit: kolom tetap bikin sesak - balik ke susun bebas (wrap ke bawah) */
+    .crane-settings > summary { display: flex; flex-wrap: wrap; }
+    .crane-summary-name, .crane-settings > summary small { white-space: normal; overflow: visible; text-overflow: clip; }
+}
 
 .crane-settings-body { padding: 4px 14px 14px; border-top: 1px solid #334155; }
 
-.crane-fields {
+/* ---- Grid atas: kartu Info crane (kiri) + Batas suhu default (kanan) ---- */
+.crane-grid-top {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 10px;
-    margin: 12px 0 8px;
-    align-items: end;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 12px 0 14px;
 }
 
-.crane-fields label,
-.crane-limits label {
+.crane-card {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 16px 18px;
+}
+
+.crane-card-title {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #cbd5e1;
+    margin-bottom: 14px;
+}
+
+.crane-card-title-count { font-weight: 400; color: #64748b; }
+
+.crane-card label {
     display: flex;
     flex-direction: column;
     gap: 4px;
     font-size: 0.78rem;
     color: #94a3b8;
+    margin-bottom: 12px;
 }
 
-.crane-fields label.check-inline { flex-direction: row; }
+.toggle-row {
+    flex-direction: row !important;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding-top: 12px;
+    margin-top: 2px;
+    margin-bottom: 0 !important;
+    border-top: 1px solid #334155;
+    font-size: 0.8rem;
+    color: #cbd5e1;
+    cursor: pointer;
+}
 
-.device-line { font-size: 0.78rem; color: #94a3b8; margin: 6px 0 12px; }
+.toggle-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 34px;
+    height: 19px;
+    flex: none;
+    background: #334155;
+    border-radius: 999px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+.toggle-checkbox::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 15px; height: 15px;
+    border-radius: 50%;
+    background: #94a3b8;
+    transition: transform 0.15s ease, background 0.15s ease;
+}
+.toggle-checkbox:checked { background: #0ea5e9; }
+.toggle-checkbox:checked::after { transform: translateX(15px); background: #f1f5f9; }
+
+.crane-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.crane-stat-tile {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-left: 3px solid #38bdf8;
+    border-radius: 8px;
+    padding: 10px 8px;
+}
+.crane-stat-tile.warn { border-left-color: #fbbf24; }
+.crane-stat-tile.danger { border-left-color: #f87171; }
+
+/* Tabel gearbox per-accordion: kolom Min/Warning/Max diberi warna sama seperti
+   "Batas suhu default" (biru/kuning/merah) supaya konsisten secara visual. */
+.limit-cell-low { color: #7dd3fc; }
+.limit-cell-warning { color: #fcd34d; }
+.limit-cell-danger { color: #fca5a5; }
+td.limit-cell { border-left: 3px solid transparent; }
+td.limit-cell-low { border-left-color: #38bdf8; background: rgba(56, 189, 248, 0.06); }
+td.limit-cell-warning { border-left-color: #fbbf24; background: rgba(251, 191, 36, 0.06); }
+td.limit-cell-danger { border-left-color: #f87171; background: rgba(248, 113, 113, 0.06); }
+.settings-page td.limit-cell input[type="number"] { color: inherit; }
+
+.crane-stat-label { font-size: 0.68rem; color: #7dd3fc; margin-bottom: 6px; }
+.crane-stat-tile.warn .crane-stat-label { color: #fcd34d; }
+.crane-stat-tile.danger .crane-stat-label { color: #fca5a5; }
+
+.crane-stat-value { display: flex; align-items: baseline; gap: 3px; }
+.crane-stat-value input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: #e2e8f0;
+    font-size: 1.15rem;
+    font-weight: 500;
+    padding: 0;
+}
+.crane-stat-value span { font-size: 0.68rem; color: #64748b; }
+
+.crane-card-divider { height: 1px; background: #334155; margin-bottom: 14px; }
+.crane-card-subtitle { font-size: 0.7rem; color: #64748b; margin-bottom: 10px; }
+
+.preset-buttons-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+
+.preset-btn {
+    background: transparent;
+    border: 1px solid #334155;
+    color: #cbd5e1;
+    border-radius: 8px;
+    padding: 9px 0;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.preset-btn:hover { background: rgba(56, 189, 248, 0.12); border-color: #38bdf8; color: #7dd3fc; }
+
+.device-line { font-size: 0.78rem; color: #94a3b8; margin: 12px 0; }
 .device-line code,
 .settings-table code { color: #7dd3fc; }
 
-.crane-limits {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: end;
-    gap: 10px;
-    margin-bottom: 12px;
-    font-size: 0.8rem;
-    color: #cbd5e1;
-}
-
-.crane-limits label { width: 150px; }
-
 .settings-table td { white-space: normal; vertical-align: middle; }
-.settings-table td input[type="number"] { width: 90px; text-align: right; }
-.settings-table td:nth-child(2) input { min-width: 200px; }
+.settings-table td input[type="number"] { width: 100%; text-align: right; }
 .settings-table tr.row-invalid td { background: #ef444418; }
+
+/* Header rata tengah, sejajar dengan kotak input di bawahnya (bukan rata kiri
+   bawaan .report-table, dan bukan rata kanan bawaan .num untuk kolom suhu) */
+.settings-table th, .settings-table th.num { text-align: center; }
+
+/* Lebar kolom tetap (px, bukan %) supaya Nama gearbox & Kode sparepart tidak
+   kesempitan digencet oleh kolom angka/preset yang sebenarnya cukup sempit.
+   min-width di table (bukan cuma width:100%) penting: tanpa itu table-layout:fixed
+   akan memaksa SEMUA kolom menyempit proporsional saat container sempit (mis. layar
+   kecil/HP), sampai angka 3 digit di kolom suhu kepotong jadi kelihatan cuma "1"
+   dari "120". Dengan min-width, tabel malah scroll ke samping (.table-wrap sudah
+   overflow-x:auto) - lebih baik daripada kolom yang tidak terbaca. */
+.settings-table-fixed { table-layout: fixed; min-width: 860px; }
+.settings-table-fixed .col-key { width: 56px; }
+.settings-table-fixed .col-name { width: 200px; }
+.settings-table-fixed .col-sparepart { width: 120px; }
+.settings-table-fixed .col-class { width: 64px; }
+.settings-table-fixed .col-num { width: 76px; }
+.settings-table-fixed .col-preset { width: 160px; }
+.settings-table-fixed td.col-key { text-align: center; }
+
+.preset-cell { display: flex; align-items: center; gap: 4px; }
+.preset-cell .preset-select { flex: 1; min-width: 0; }
+.preset-cell .icon-btn { flex: none; padding: 4px; }
+.settings-table-fixed .col-del { width: 32px; }
+.settings-table-fixed td.num, .settings-table-fixed th.num { padding-left: 6px; padding-right: 6px; }
+
+/* Sembunyikan spinner angka bawaan browser di kolom suhu - di kolom sesempit ini
+   spinner-nya makan tempat yang harusnya buat angka itu sendiri */
+.settings-table-fixed input[type="number"]::-webkit-outer-spin-button,
+.settings-table-fixed input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.settings-table-fixed input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+.settings-table-fixed td,
+.settings-table-fixed th { overflow: hidden; text-overflow: ellipsis; }
+
+.preset-select {
+    background: #0f172a;
+    border: 1px solid #334155;
+    color: #cbd5e1;
+    border-radius: 6px;
+    padding: 4px 6px;
+    width: 100%;
+    font-size: 0.72rem;
+    cursor: pointer;
+}   
+.preset-select:hover { border-color: #38bdf8; color: #7dd3fc; }
+
+.preset-select {
+    background: #0f172a;
+    border: 1px solid #334155;
+    color: #cbd5e1;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+.preset-select:hover { border-color: #38bdf8; color: #7dd3fc; }
 
 .icon-btn {
     background: transparent;
@@ -1264,6 +2479,7 @@ body.has-alarm-banner .overview-modal-overlay.active .overview-modal { padding-t
 }
 
 .audit-head { color: #cbd5e1; }
+.audit-head .audit-del { margin-left: 8px; padding: 2px 8px; font-size: 0.72rem; vertical-align: middle; }
 .audit-item ul { margin: 4px 0 0 18px; color: #94a3b8; }
 #auditList { margin-bottom: 14px; max-height: 420px; overflow-y: auto; }
 
@@ -1288,3 +2504,22 @@ body.has-alarm-banner .overview-modal-overlay.active .overview-modal { padding-t
 .save-bar span { flex: 1 1 220px; font-weight: 600; }
 .save-bar input { max-width: 240px; }
 body.has-save-bar { padding-bottom: 90px; }
+
+@media (max-width: 640px) {
+    .settings-section { padding: 14px; }
+
+    /* Field OTA & batas suhu per gearbox: lebar penuh, bukan max-width kecil
+       yang dirancang buat layar lebar */
+    .settings-toolbar input[type="text"],
+    .ota-upload-row input.ota-pic-input { width: 100%; max-width: none; }
+    .crane-grid-top { grid-template-columns: 1fr; }
+    .ota-upload-row { flex-direction: column; align-items: stretch; }
+    .ota-block-actions { width: 100%; }
+    .ota-block-actions .device-btn { flex: 1; justify-content: center; }
+
+    /* Bar simpan di bawah layar: tumpuk rapi (teks, nama, tombol) daripada
+       berdesakan sebaris */
+    .save-bar { flex-direction: column; align-items: stretch; padding: 12px 16px; }
+    .save-bar input { max-width: none; }
+    body.has-save-bar { padding-bottom: 160px; }
+}

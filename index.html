@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitoring Suhu Gearbox Overhead Crane</title>
+    <title>Monitoring Suhu Motor Overhead Crane</title>
     
     <!-- Library disimpan lokal di folder vendor/ (tidak butuh internet).
          Isi folder vendor/ dibuat dengan: npm install lalu npm run vendor -->
@@ -22,56 +22,91 @@
 
     <div class="app-container">
         <!-- HEADER -->
-        <header class="main-header">
-            <div class="header-title">
-                <h1><i class="fa-solid fa-gears"></i> Sistem Monitoring Suhu Gearbox Overhead Crane</h1>
-                <p>Karawang Plant
-                    <span class="conn-pill conn-connecting" id="mqttConnStatus"><i class="fa-solid fa-circle"></i> Menghubungkan ke broker...</span>
-                    <span class="conn-pill conn-connecting" id="alarmConnStatus"><i class="fa-solid fa-circle"></i> Menghubungkan ke server alarm...</span>
-                </p>
+        <header class="main-header dashboard-header">
+            <!-- Baris judul: judul di tengah, badge akun (diisi auth-ui.js) di kanan -->
+            <div class="header-title-row">
+                <h1 class="header-title-text"><i class="fa-solid fa-gears"></i> Sistem Monitoring Suhu Motor Overhead Crane</h1>
+                <div id="authSlot"></div>
             </div>
-            
-            <!-- STATS CARDS -->
-            <div class="header-stats stat-cards">
-                <div class="stat-card alarm-stat" id="alarmStatCard" onclick="openAlarmPanel()" style="cursor: pointer;" title="Lihat alarm aktif & riwayat">
-                    <div class="stat-value"><i class="fa-solid fa-bell"></i> <span id="stat-alarm">0</span></div>
-                    <div class="stat-label">Alarm</div>
+
+            <!-- STRIP INDIKATOR: plant, jam & status koneksi, semuanya di tengah -->
+            <div class="header-indicators">
+                <div class="header-meta-left">
+                    <span class="plant-name"><i class="fa-solid fa-industry"></i> Cibitung Plant</span>
+                    <span class="meta-sep" aria-hidden="true">&bull;</span>
+                    <span class="live-clock" id="liveClock"><i class="fa-solid fa-clock"></i> --:--:--</span>
                 </div>
-                <a class="stat-card btn-report" href="pengaturan.html" style="cursor: pointer; text-decoration: none;" title="Nama crane/gearbox, batas suhu, aktivasi perangkat">
-                    <div class="stat-value"><i class="fa-solid fa-sliders"></i></div>
-                    <div class="stat-label">Pengaturan</div>
-                </a>
-                <a class="stat-card btn-report" href="laporan.html" style="cursor: pointer; text-decoration: none;" title="Tren suhu, laporan periode & kejadian alarm">
-                    <div class="stat-value"><i class="fa-solid fa-chart-line"></i></div>
-                    <div class="stat-label">Laporan</div>
-                </a>
-                <div class="stat-card btn-overview" onclick="openOverviewModal()" style="cursor: pointer;" title="Lihat overview log semua crane">
-                    <div class="stat-value"><i class="fa-solid fa-table-list"></i></div>
-                    <div class="stat-label">Overview</div>
+                <div class="header-meta-right">
+                    <span class="conn-pill conn-connecting" id="mqttConnStatus"><i class="fa-solid fa-circle"></i> Menghubungkan ke Broker...</span>
+                    <span class="conn-pill conn-connecting" id="alarmConnStatus"><i class="fa-solid fa-circle"></i> Menghubungkan ke Server Alarm...</span>
                 </div>
-                <div class="stat-card" onclick="filterByStatus('all')" data-status="all" style="cursor: pointer;" title="Klik untuk menampilkan semua">
-                    <div class="stat-value" id="stat-total">0</div>
-                    <div class="stat-label">Total Crane</div>
+            </div>
+
+            <!-- MENU NAVIGASI + RINGKASAN STATUS: dua kartu terpisah -->
+            <div class="header-stats">
+                <div class="stat-panel actions-panel">
+                    <div class="action-card alarm-stat" id="alarmStatCard" onclick="openAlarmPanel()" title="Lihat alarm aktif & riwayat">
+                        <span class="action-icon action-icon--alarm"><i class="fa-solid fa-bell"></i></span>
+                        <div class="action-text">
+                            <div class="stat-value"><span id="stat-alarm">0</span></div>
+                            <div class="stat-label">Alarm</div>
+                        </div>
+                    </div>
+                    <a class="action-card no-viewer" href="pengaturan.html" title="Nama crane/motor, batas suhu, aktivasi perangkat">
+                        <span class="action-icon"><i class="fa-solid fa-sliders"></i></span>
+                        <div class="stat-label">Pengaturan</div>
+                    </a>
+                    <a class="action-card no-viewer" href="laporan.html" title="Tren suhu, laporan periode & kejadian alarm">
+                        <span class="action-icon"><i class="fa-solid fa-chart-line"></i></span>
+                        <div class="stat-label">Laporan</div>
+                    </a>
+                    <a class="action-card no-viewer" href="status.html" title="Apakah broker/logger/web beneran hidup (bukan cuma jendelanya kebuka)">
+                        <span class="action-icon"><i class="fa-solid fa-heart-pulse"></i></span>
+                        <div class="stat-label">Status Sistem</div>
+                    </a>
+                    <!-- Sesi login aktif + pengajuan akun baru. Untuk maintenance (akun "viewer"
+                         tidak melihatnya).  maintenance cuma sesama akunnya
+                         (difilter di server, lihat api/sessions di server.js) -->
+                    <div class="action-card no-viewer" onclick="openSessionsPanel()" title="Sesi login aktif & pengajuan akun baru">
+                        <span class="action-icon"><i class="fa-solid fa-users"></i></span>
+                        <div class="stat-label">Sesi Login <span class="signup-badge" id="signupBadge" style="display: none;" title="Pengajuan akun yang menunggu persetujuan">0</span></div>
+                    </div>
+                    <div class="action-card" onclick="openOverviewModal()" title="Lihat overview log semua crane">
+                        <span class="action-icon"><i class="fa-solid fa-table-list"></i></span>
+                        <div class="stat-label">Overview</div>
+                    </div>
                 </div>
-                <div class="stat-card" onclick="filterByStatus('normal')" data-status="normal" style="cursor: pointer;" title="Klik untuk filter Normal">
-                    <div class="stat-value text-normal" id="stat-normal">0</div>
-                    <div class="stat-label">Normal</div>
-                </div>
-                <div class="stat-card" onclick="filterByStatus('warning')" data-status="warning" style="cursor: pointer;" title="Klik untuk filter Warning">
-                    <div class="stat-value text-warning" id="stat-warning">0</div>
-                    <div class="stat-label">Warning</div>
-                </div>
-                <div class="stat-card" onclick="filterByStatus('danger')" data-status="danger" style="cursor: pointer;" title="Klik untuk filter Danger">
-                    <div class="stat-value text-danger" id="stat-danger">0</div>
-                    <div class="stat-label">Danger</div>
-                </div>
-                <div class="stat-card" onclick="filterByStatus('offline')" data-status="offline" style="cursor: pointer;" title="Sudah terpasang, tapi data sensor berhenti / tidak valid">
-                    <div class="stat-value text-offline" id="stat-offline">0</div>
-                    <div class="stat-label">Offline / Error</div>
-                </div>
-                <div class="stat-card" onclick="filterByStatus('not-installed')" data-status="not-installed" style="cursor: pointer;" title="Sensor sengaja belum dipasang / belum diaktifkan">
-                    <div class="stat-value text-not-installed" id="stat-not-installed">0</div>
-                    <div class="stat-label">Belum Terpasang</div>
+
+                <div class="stat-panel metrics-panel">
+                    <div class="stat-card metric-card" onclick="filterByStatus('all')" data-status="all" title="Klik untuk menampilkan semua">
+                        <div class="stat-value"><span id="stat-total">0</span></div>
+                        <div class="stat-label">Total Crane</div>
+                    </div>
+                    <div class="stat-card metric-card" onclick="filterByStatus('normal')" data-status="normal" title="Klik untuk filter Normal">
+                        <span class="metric-dot dot-normal" aria-hidden="true"></span>
+                        <div class="stat-value text-normal"><span id="stat-normal">0</span></div>
+                        <div class="stat-label">Normal</div>
+                    </div>
+                    <div class="stat-card metric-card" onclick="filterByStatus('warning')" data-status="warning" title="Klik untuk filter Warning">
+                        <span class="metric-dot dot-warning" aria-hidden="true"></span>
+                        <div class="stat-value text-warning"><span id="stat-warning">0</span></div>
+                        <div class="stat-label">Warning</div>
+                    </div>
+                    <div class="stat-card metric-card" onclick="filterByStatus('danger')" data-status="danger" title="Klik untuk filter Danger">
+                        <span class="metric-dot dot-danger" aria-hidden="true"></span>
+                        <div class="stat-value text-danger"><span id="stat-danger">0</span></div>
+                        <div class="stat-label">Danger</div>
+                    </div>
+                    <div class="stat-card metric-card" onclick="filterByStatus('offline')" data-status="offline" title="Sudah terpasang, tapi data sensor berhenti / tidak valid">
+                        <span class="metric-dot dot-offline" aria-hidden="true"></span>
+                        <div class="stat-value text-offline"><span id="stat-offline">0</span></div>
+                        <div class="stat-label">Offline / Error</div>
+                    </div>
+                    <div class="stat-card metric-card" onclick="filterByStatus('not-installed')" data-status="not-installed" title="Sensor sengaja belum dipasang / belum diaktifkan">
+                        <span class="metric-dot dot-not-installed" aria-hidden="true"></span>
+                        <div class="stat-value text-not-installed"><span id="stat-not-installed">0</span></div>
+                        <div class="stat-label">Belum Terpasang</div>
+                    </div>
                 </div>
             </div>
         </header>
@@ -82,10 +117,15 @@
                 <i class="fa-solid fa-magnifying-glass"></i>
                 <input type="text" id="searchInput" onkeyup="filterCranes()" placeholder="Cari Nama Crane atau Lokasi...">
             </div>
+            <!-- Cuma tampil untuk akunhat auth-ui.js). Belum ada fungsi -
+                 tombolnya sengaja belum dikasih onclick, menunggu fiturnya ditentukan. -->
+            <button type="button" class="deadman-switch-btn" id="deadmanSwitchBtn" data-master-only="true" style="display: none;" onclick="deadmanSwitchClick()">
+                <i class="fa-solid fa-skull-crossbones"></i> Deadman Switch
+            </button>
         </div>
 
         <!-- PERANGKAT BARU TERDETEKSI (diisi JS dari server) -->
-        <div class="device-notice" id="deviceNotice" style="display: none;"></div>
+        <div class="device-notice no-viewer" id="deviceNotice" style="display: none;"></div>
 
         <!-- ACCORDION CONTAINER -->
         <div class="accordion-container" id="accordionContainer">
@@ -97,47 +137,56 @@
     <div class="overview-modal-overlay" id="overviewModalOverlay" onclick="if(event.target === this) closeOverviewModal()">
         <div class="overview-modal">
             <div class="overview-modal-header">
-                <h2><i class="fa-solid fa-table-list"></i> Overview Log All Crane | Karawang Plant</h2>
-                <div class="overview-header-stats">
-                    <div class="stat-card" onclick="filterByStatus('all')" data-status="all" style="cursor: pointer;" title="Klik untuk menampilkan semua">
-                        <div class="stat-value" id="ov-stat-total">0</div>
-                        <div class="stat-label">Total Crane</div>
-                    </div>
-                    <div class="stat-card" onclick="filterByStatus('normal')" data-status="normal" style="cursor: pointer;" title="Klik untuk filter Normal">
-                        <div class="stat-value text-normal" id="ov-stat-normal">0</div>
-                        <div class="stat-label">Normal</div>
-                    </div>
-                    <div class="stat-card" onclick="filterByStatus('warning')" data-status="warning" style="cursor: pointer;" title="Klik untuk filter Warning">
-                        <div class="stat-value text-warning" id="ov-stat-warning">0</div>
-                        <div class="stat-label">Warning</div>
-                    </div>
-                    <div class="stat-card" onclick="filterByStatus('danger')" data-status="danger" style="cursor: pointer;" title="Klik untuk filter Danger">
-                        <div class="stat-value text-danger" id="ov-stat-danger">0</div>
-                        <div class="stat-label">Danger</div>
-                    </div>
-                    <div class="stat-card" onclick="filterByStatus('offline')" data-status="offline" style="cursor: pointer;" title="Sudah terpasang, tapi data sensor berhenti / tidak valid">
-                        <div class="stat-value text-offline" id="ov-stat-offline">0</div>
-                        <div class="stat-label">Offline / Error</div>
-                    </div>
-                    <div class="stat-card" onclick="filterByStatus('not-installed')" data-status="not-installed" style="cursor: pointer;" title="Sensor sengaja belum dipasang / belum diaktifkan">
-                        <div class="stat-value text-not-installed" id="ov-stat-not-installed">0</div>
-                        <div class="stat-label">Belum Terpasang</div>
+                <div class="overview-header-left">
+                    <h2><i class="fa-solid fa-table-list"></i> Overview Log All Crane | Cibitung Plant</h2>
+                    <div class="overview-header-meta">
+                        <span class="live-clock live-clock--overview" id="ovLiveClock"><i class="fa-solid fa-clock"></i> --:--:--</span>
+                        <span class="conn-pill conn-connecting" id="ovMqttConnStatus"><i class="fa-solid fa-circle"></i> Menghubungkan ke Broker...</span>
+                        <span class="conn-pill conn-connecting" id="ovAlarmConnStatus"><i class="fa-solid fa-circle"></i> Menghubungkan ke Server Alarm...</span>
                     </div>
                 </div>
-                <button class="overview-close-btn" onclick="closeOverviewModal()" title="Tutup">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
+                <div class="overview-header-right">
+                    <div class="overview-header-stats">
+                        <div class="stat-card" onclick="filterByStatus('all')" data-status="all" style="cursor: pointer;" title="Klik untuk menampilkan semua">
+                            <div class="stat-value" id="ov-stat-total">0</div>
+                            <div class="stat-label">Total Crane</div>
+                        </div>
+                        <div class="stat-card" onclick="filterByStatus('normal')" data-status="normal" style="cursor: pointer;" title="Klik untuk filter Normal">
+                            <div class="stat-value text-normal" id="ov-stat-normal">0</div>
+                            <div class="stat-label">Normal</div>
+                        </div>
+                        <div class="stat-card" onclick="filterByStatus('warning')" data-status="warning" style="cursor: pointer;" title="Klik untuk filter Warning">
+                            <div class="stat-value text-warning" id="ov-stat-warning">0</div>
+                            <div class="stat-label">Warning</div>
+                        </div>
+                        <div class="stat-card" onclick="filterByStatus('danger')" data-status="danger" style="cursor: pointer;" title="Klik untuk filter Danger">
+                            <div class="stat-value text-danger" id="ov-stat-danger">0</div>
+                            <div class="stat-label">Danger</div>
+                        </div>
+                        <div class="stat-card" onclick="filterByStatus('offline')" data-status="offline" style="cursor: pointer;" title="Sudah terpasang, tapi data sensor berhenti / tidak valid">
+                            <div class="stat-value text-offline" id="ov-stat-offline">0</div>
+                            <div class="stat-label">Offline / Error</div>
+                        </div>
+                        <div class="stat-card" onclick="filterByStatus('not-installed')" data-status="not-installed" style="cursor: pointer;" title="Sensor sengaja belum dipasang / belum diaktifkan">
+                            <div class="stat-value text-not-installed" id="ov-stat-not-installed">0</div>
+                            <div class="stat-label">Belum Terpasang</div>
+                        </div>
+                    </div>
+                    <button class="overview-close-btn" onclick="closeOverviewModal()" title="Tutup">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
             </div>
             <div class="overview-modal-body" id="overviewModalBody">
                 <!-- Konten slide dirender lewat JS -->
             </div>
             <div class="overview-modal-footer">
                 <button class="overview-nav-btn" onclick="prevOverviewSlide(); startAutoSlide();">
-                    <i class="fa-solid fa-chevron-left"></i> Sebelumnya
+                    <i class="fa-solid fa-chevron-left"></i> <span class="overview-nav-btn-label">Sebelumnya</span>
                 </button>
                 <span class="overview-indicator" id="overviewIndicator">1 / 25</span>
                 <button class="overview-nav-btn" onclick="nextOverviewSlide(); startAutoSlide();">
-                    Berikutnya <i class="fa-solid fa-chevron-right"></i>
+                    <span class="overview-nav-btn-label">Berikutnya</span> <i class="fa-solid fa-chevron-right"></i>
                 </button>
             </div>
         </div>
@@ -150,7 +199,7 @@
         <div class="alarm-banner-actions">
             <span class="alarm-banner-sound" id="alarmBannerSound"><i class="fa-solid fa-volume-xmark"></i> Klik di mana saja untuk mengaktifkan bunyi</span>
             <button class="alarm-banner-btn" onclick="viewBannerAlarm()"><i class="fa-solid fa-eye"></i> Lihat</button>
-            <button class="alarm-banner-btn primary" onclick="ackBannerAlarm()"><i class="fa-solid fa-check"></i> Ack</button>
+            <button class="alarm-banner-btn primary no-viewer" onclick="ackBannerAlarm()"><i class="fa-solid fa-check"></i> Ack</button>
         </div>
     </div>
 
@@ -162,7 +211,7 @@
                 <button class="overview-close-btn" onclick="closeAlarmPanel()" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="alarm-panel-settings">
-                <label class="operator-field">
+                <label class="operator-field no-viewer">
                     <i class="fa-solid fa-user"></i>
                     <input type="text" id="operatorName" maxlength="40" placeholder="Nama operator (untuk ack)" onchange="setOperatorName(this.value)">
                 </label>
@@ -177,9 +226,67 @@
         </div>
     </div>
 
+    <!-- PANEL SESI LOGIN: siapa sedang online (semua sesi; akun lain: sesama akunnya saja - lihat api/sessions) -->
+    <div class="alarm-panel-overlay" id="sessionsPanelOverlay" onclick="if(event.target === this) closeSessionsPanel()">
+        <div class="alarm-panel">
+            <div class="alarm-panel-header">
+                <h2><i class="fa-solid fa-users"></i> Sesi &amp; Akun</h2>
+                <button class="overview-close-btn" onclick="closeSessionsPanel()" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="alarm-tabs">
+                <button class="sessions-tab active" data-stab="sessions" onclick="setSessionsTab('sessions')">Sesi Aktif</button>
+                <button class="sessions-tab" data-stab="signups" onclick="setSessionsTab('signups')">Pengajuan Akun (<span id="signupTabCount">0</span>)</button>
+                <!-- Maintenance (viewer tidak melihat panel ini): daftar akun hasil pengajuan + tombol hapus -->
+                <button class="sessions-tab no-viewer" data-stab="accounts" onclick="setSessionsTab('accounts')">Akun</button>
+            </div>
+            <div class="sessions-search-row">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="sessionsSearchInput" placeholder="Cari..." oninput="onSessionsSearch(this.value)">
+            </div>
+            <div class="alarm-list sessions-scroll" id="sessionsList"></div>
+            <div class="alarm-list sessions-scroll" id="signupsList" style="display: none;"></div>
+            <div class="alarm-list sessions-scroll" id="accountsList" style="display: none;"></div>
+        </div>
+    </div>
+
+    <!-- MODAL KONFIRMASI GENERIK - dipakai Deadman Switch, dsb (lihat showConfirmModal
+         di JS_Monitoring.js). Menggantikan confirm() bawaan browser yang tidak bisa
+         disesuaikan tampilannya. -->
+    <div class="confirm-modal-overlay" id="confirmModalOverlay" onclick="if(event.target === this) document.getElementById('confirmModalCancelBtn').click()">
+        <div class="confirm-modal">
+            <div class="confirm-modal-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <p class="confirm-modal-text" id="confirmModalText">Apakah Anda yakin?</p>
+            <p class="confirm-modal-detail" id="confirmModalDetail" style="display: none;"></p>
+            <!-- Cuma muncul kalau tindakannya minta konfirmasi ketik (requireText) -->
+            <div class="confirm-modal-type" id="confirmModalTypeWrap" style="display: none;">
+                <label for="confirmModalInput" id="confirmModalTypeLabel"></label>
+                <input type="text" id="confirmModalInput" autocomplete="off" autocapitalize="characters" spellcheck="false">
+            </div>
+            <div class="confirm-modal-actions">
+                <button type="button" class="confirm-modal-btn confirm-modal-btn--cancel" id="confirmModalCancelBtn">Batal</button>
+                <button type="button" class="confirm-modal-btn confirm-modal-btn--ok" id="confirmModalOkBtn">Ya</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- POP-UP PRANK - muncul setelah Deadman Switch dikonfirmasi (lihat
+         deadmanSwitchClick di JS_Monitoring.js). Tidak ada yang benar-benar dihapus. -->
+    <div class="confirm-modal-overlay" id="prankModalOverlay" onclick="if(event.target === this) closePrankModal()">
+        <div class="confirm-modal prank-modal">
+            <div class="prank-modal-emoji">🤣</div>
+            <p class="prank-modal-title">PRANK!</p>
+            <p class="prank-modal-text">Tenang, tidak ada yang dihapus. Semua program & ESP32 aman.</p>
+            <div class="confirm-modal-actions">
+                <button type="button" class="confirm-modal-btn prank-modal-btn" onclick="closePrankModal()">Tutup</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Aturan status/alarm (dipakai bersama halaman laporan & server) -->
     <script src="alarm_rules.js"></script>
     <!-- Custom JS kamu -->
     <script src="JS_Monitoring.js"></script>
+    <script src="mds.js"></script>
+    <script src="auth-ui.js"></script>
 </body>
 </html>

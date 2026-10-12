@@ -83,9 +83,15 @@ function errorBox(err) {
 }
 
 // ---------- periode ----------
+// days: jumlah hari (rentang BERGULIR sampai sekarang: "24 jam terakhir" ikut bergeser tiap dibuka)
+// atau 'today' = dari jam 00.00 WIB hari ini sampai sekarang (awal tetap, cocok untuk laporan harian/shift).
 function setPreset(days) {
     const now = Date.now();
-    period = { from: now - days * DAY, to: now, days };
+    if (days === 'today') {
+        period = { from: Date.parse(`${wibDateStr(now)}T00:00:00+07:00`), to: now, days: null, today: true };
+    } else {
+        period = { from: now - days * DAY, to: now, days };
+    }
     storageSet('reportDays', String(days));
     onPeriodChanged();
 }
@@ -103,10 +109,13 @@ function applyCustomPeriod() {
 }
 
 function onPeriodChanged() {
-    document.querySelectorAll('.period-btn[data-days]').forEach(btn => btn.classList.toggle('active', Number(btn.dataset.days) === period.days));
-    const label = period.days
-        ? `${period.days === 1 ? '24 jam' : period.days + ' hari'} terakhir · ${fmtDateTime(period.from)} – ${fmtDateTime(period.to)} WIB`
-        : `${fmtDate(period.from)} – ${fmtDate(period.to - 1)}`;
+    const activeKey = period.today ? 'today' : String(period.days);
+    document.querySelectorAll('.period-btn[data-days]').forEach(btn => btn.classList.toggle('active', btn.dataset.days === activeKey));
+    const label = period.today
+        ? `Hari ini · ${fmtDateTime(period.from)} – ${fmtDateTime(period.to)} WIB`
+        : period.days
+            ? `${period.days === 1 ? '24 jam' : period.days + ' hari'} terakhir · ${fmtDateTime(period.from)} – ${fmtDateTime(period.to)} WIB`
+            : `${fmtDate(period.from)} – ${fmtDate(period.to - 1)}`;
     document.getElementById('periodLabel').innerText = label;
     summaryData = null;
     alarmData = null;
@@ -133,11 +142,13 @@ function loadCurrentTab() {
 // ============================================================
 function initCraneSelect() {
     const select = document.getElementById('craneSelect');
-    const sorted = [...CRANES].sort((a, b) => (b.installed - a.installed) || (a.number - b.number));
+    // Urutan & nomor SAMA dengan dashboard dan Pengaturan (urutan di settings), bukan
+    // dikelompokkan "terpasang dulu" - yang terpasang tidak lagi loncat ke atas.
+    const sorted = [...CRANES].sort((a, b) => a.number - b.number);
     select.innerHTML = sorted.map(c =>
-        `<option value="${escapeHTML(c.id)}">${escapeHTML(c.name)}${c.installed ? '' : ' (belum terpasang)'}</option>`).join('');
+        `<option value="${escapeHTML(c.id)}">${String(c.number).padStart(2, '0')} · ${escapeHTML(c.name)}${c.installed ? '' : ' (belum terpasang)'}</option>`).join('');
     const saved = storageGet('reportCrane', '');
-    select.value = craneOf(saved) ? saved : sorted[0].id;
+    select.value = craneOf(saved) ? saved : (sorted.find(c => c.installed) || sorted[0]).id;
 }
 
 function destroyTrendCharts() {
@@ -267,7 +278,7 @@ function renderTrendCard(crane, gb, data) {
 // ============================================================
 const SUMMARY_COLUMNS = [
     { key: 'craneName', label: 'Crane', text: true },
-    { key: 'gbName', label: 'Gearbox', text: true },
+    { key: 'gbName', label: 'Motor', text: true },
     { key: 'limitDanger', label: 'Batas Min / Normal / Max (°C)', html: r => `${r.limits.low} / ${r.limits.warning} / ${r.limits.danger}`, excel: r => `${r.limits.low} / ${r.limits.warning} / ${r.limits.danger}` },
     { key: 'min', label: 'Min (°C)', html: r => fmtNum(r.min) },
     { key: 'avg', label: 'Rata-rata (°C)', html: r => fmtNum(r.avg) },
@@ -346,7 +357,7 @@ function renderSummary() {
     const noDataCount = rows.length - withData.length;
 
     document.getElementById('summaryCards').innerHTML = `
-        <div class="summary-card"><div class="summary-value">${withData.length}</div><div class="summary-label">Gearbox dengan data</div></div>
+        <div class="summary-card"><div class="summary-value">${withData.length}</div><div class="summary-label">Motor dengan data</div></div>
         <div class="summary-card"><div class="summary-value ${noDataCount ? 'text-warning' : ''}">${noDataCount}</div><div class="summary-label">Terpasang tapi tanpa data</div></div>
         <div class="summary-card"><div class="summary-value ${totalDangerAlarms ? 'text-danger' : ''}">${totalDangerAlarms}</div><div class="summary-label">Alarm danger</div></div>
         <div class="summary-card"><div class="summary-value ${totalDangerMinutes ? 'text-danger' : ''}">${summaryData.resolution === 'minute' ? totalDangerMinutes : '—'}</div><div class="summary-label">Menit di atas batas danger</div></div>
@@ -412,7 +423,7 @@ function alarmLimitText(o) {
 
 function renderAlarms() {
     const list = filteredAlarms();
-    const head = '<thead><tr><th>Mulai</th><th>Selesai</th><th class="num">Durasi</th><th>Crane</th><th>Gearbox</th><th>Jenis</th><th>Tingkat</th><th class="num">Puncak</th><th class="num">Batas</th><th>Di-ack oleh</th></tr></thead>';
+    const head = '<thead><tr><th>Mulai</th><th>Selesai</th><th class="num">Durasi</th><th>Crane</th><th>Motor</th><th>Jenis</th><th>Tingkat</th><th class="num">Puncak</th><th class="num">Batas</th><th>Di-ack oleh</th></tr></thead>';
     if (list.length === 0) {
         document.getElementById('alarmTable').innerHTML = head + '<tbody><tr><td colspan="10" class="report-empty"><i class="fa-solid fa-circle-check"></i> Tidak ada alarm pada periode ini.</td></tr></tbody>';
         return;
@@ -512,7 +523,7 @@ function downloadAlarms() {
         name: 'Kejadian alarm',
         columns: [
             { header: 'Mulai (WIB)', width: 18, date: true }, { header: 'Selesai (WIB)', width: 18, date: true },
-            { header: 'Durasi (menit)' }, { header: 'Crane', width: 34 }, { header: 'Gearbox', width: 26 },
+            { header: 'Durasi (menit)' }, { header: 'Crane', width: 34 }, { header: 'Motor', width: 26 },
             { header: 'Jenis', width: 16 }, { header: 'Tingkat' }, { header: 'Puncak' }, { header: 'Batas' },
             { header: 'Di-ack oleh', width: 20 }, { header: 'Waktu ack (WIB)', width: 18, date: true }
         ],
@@ -535,7 +546,7 @@ function downloadAlarms() {
 function buildCraneList() {
     CRANES = settings.cranes.map((c, i) => ({
         id: c.id, number: i + 1, name: c.name, location: c.location, installed: c.installed === true,
-        gearboxes: c.gearboxes.map(g => ({ key: g.key, name: g.name }))
+        gearboxes: c.gearboxes.filter(g => g.enabled !== false).map(g => ({ key: g.key, name: g.name })) // motor yang dimatikan tidak ikut laporan
     }));
 }
 
@@ -556,7 +567,8 @@ async function init() {
     document.getElementById('customFrom').value = wibDateStr(Date.now() - 6 * DAY);
 
     setTab(storageGet('reportTab', 'trend'), false);
-    setPreset(Number(storageGet('reportDays', '7')) || 7);
+    const savedPreset = storageGet('reportDays', '7');
+    setPreset(savedPreset === 'today' ? 'today' : Number(savedPreset) || 7);
 }
 
 init();

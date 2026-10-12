@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tren & Laporan Suhu Gearbox</title>
+    <title>Tren & Laporan Suhu Motor</title>
     <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css">
     <script src="vendor/chart.umd.min.js"></script>
     <link rel="stylesheet" href="CSS_Monitoring.css">
@@ -11,15 +11,20 @@
 <body>
     <div class="app-container">
         <header class="main-header">
+            <div class="header-top-row">
+                <a href="index.html" class="back-btn"><i class="fa-solid fa-arrow-left"></i> Kembali ke dashboard</a>
+                <div id="authSlot"></div>
+            </div>
             <div class="header-title">
-                <h1><i class="fa-solid fa-chart-line"></i> Tren & Laporan Suhu Gearbox</h1>
-                <p>Karawang Plant · <a href="index.html" class="back-link"><i class="fa-solid fa-arrow-left"></i> Kembali ke dashboard</a></p>
+                <h1><i class="fa-solid fa-chart-line"></i> Tren & Laporan Suhu Motor</h1>
+                <p>Cibitung Plant</p>
             </div>
         </header>
 
         <!-- PERIODE -->
         <div class="report-toolbar">
             <div class="period-presets">
+                <button class="period-btn" data-days="today" onclick="setPreset('today')" title="Dari jam 00.00 WIB hari ini sampai sekarang">Hari ini</button>
                 <button class="period-btn" data-days="1" onclick="setPreset(1)">24 jam</button>
                 <button class="period-btn" data-days="7" onclick="setPreset(7)">7 hari</button>
                 <button class="period-btn" data-days="30" onclick="setPreset(30)">30 hari</button>
@@ -84,5 +89,6 @@
 
     <script src="alarm_rules.js"></script>
     <script src="laporan.js"></script>
+    <script src="auth-ui.js"></script>
 </body>
 </html>
