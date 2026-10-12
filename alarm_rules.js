@@ -34,6 +34,23 @@
     };
     const LIMIT_KEYS = Object.keys(DEFAULTS);
 
+    // ---- ID perangkat (ESP32) ----
+    // Satu crane boleh dipasangi lebih dari satu ESP32. Tiap ESP32 punya ID perangkat sendiri yang
+    // dipakai di topik MQTT (pabrik/<area>/<id-perangkat>/temp|status|log|perintah), login MQTT,
+    // Client ID, dan folder OTA:
+    //   ESP utama (node 1)  -> ID perangkat = ID crane apa adanya, mis. "crane-01" (sama seperti dulu)
+    //   ESP tambahan        -> "<id-crane>_<node>", mis. "crane-01_2", "crane-01_3" (node 2..99)
+    // ID crane tidak boleh berisi "_", jadi pemisahnya tidak pernah ambigu.
+    const DEVICE_ID_RE = /^([a-z0-9][a-z0-9-]{0,39})(?:_([1-9]d?))?$/i;
+    function parseDeviceId(id) {
+        const m = DEVICE_ID_RE.exec(String(id || ''));
+        if (!m || m[2] === '1') return null; // "crane-01_1" tidak dipakai: node 1 = "crane-01"
+        return { craneId: m[1], node: m[2] ? Number(m[2]) : 1 };
+    }
+    function deviceIdOf(craneId, node) {
+        return Number(node) > 1 ? `${craneId}_${Number(node)}` : craneId;
+    }
+
     function findCrane(settings, craneId) {
         return ((settings && settings.cranes) || []).find(c => c.id === craneId);
     }
@@ -78,5 +95,5 @@
         return problems;
     }
 
-    return { SENSOR_MIN_VALID, SENSOR_MAX_VALID, DEFAULTS, LIMIT_KEYS, findCrane, getLimits, isValidTemp, upperStatus, tempStatus, validateLimits };
+    return { SENSOR_MIN_VALID, SENSOR_MAX_VALID, DEFAULTS, LIMIT_KEYS, parseDeviceId, deviceIdOf, findCrane, getLimits, isValidTemp, upperStatus, tempStatus, validateLimits };
 });

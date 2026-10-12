@@ -28,6 +28,14 @@ const AlarmRules = require('./alarm_rules');
 const HISTORY_IN_MEMORY = 200;   // event riwayat yang disimpan di memori / dikirim ke dashboard
 const SEVERITY_RANK = { warning: 1, danger: 2 };
 
+// history.jsonl cuma ditambah terus (append) dan bisa tumbuh tanpa batas kalau
+// tidak dijaga. Data alarm yang PERMANEN untuk laporan tetap aman tersimpan di
+// database (tabel alarm_events, lihat db.js) - jadi file ini boleh dipotong
+// tanpa kehilangan apa pun yang penting untuk laporan. Mirip pola rotasi
+// service-logs/*.log di run-all.js: lewat MAX_HISTORY_BYTES -> file lama
+// digeser jadi ".1" (menimpa ".1" sebelumnya kalau ada), lalu mulai dari kosong.
+const MAX_HISTORY_BYTES = 20 * 1024 * 1024; // 20 MB
+
 class AlarmEngine extends EventEmitter {
     constructor({ config, dir }) {
         super();
@@ -70,11 +78,21 @@ class AlarmEngine extends EventEmitter {
         const entry = { at: Date.now(), event, alarm: { ...alarm }, ...extra };
         this.history.unshift(entry);
         if (this.history.length > HISTORY_IN_MEMORY) this.history.pop();
-        fs.appendFile(this.historyFile, JSON.stringify(entry) + '\n', err => {
-            if (err) console.error('[Alarm] Gagal tulis riwayat:', err.message);
-        });
+        this.appendHistoryFile(JSON.stringify(entry) + '\n');
         this.emit('event', entry); // server.js menyimpannya juga ke database untuk laporan
         console.log(`[Alarm] ${event.toUpperCase()} ${alarm.id} (${alarm.severity}) ${extra.by ? 'oleh ' + extra.by : ''}`.trim());
+    }
+
+    // Rotasi ukuran, lihat catatan MAX_HISTORY_BYTES di atas
+    appendHistoryFile(line) {
+        try {
+            if (fs.statSync(this.historyFile).size > MAX_HISTORY_BYTES) {
+                fs.renameSync(this.historyFile, `${this.historyFile}.1`);
+            }
+        } catch (e) { /* file belum ada - wajar kalau logger baru pertama kali jalan */ }
+        fs.appendFile(this.historyFile, line, err => {
+            if (err) console.error('[Alarm] Gagal tulis riwayat:', err.message);
+        });
     }
 
     changed() {
@@ -147,9 +165,11 @@ class AlarmEngine extends EventEmitter {
 
     // Hanya crane yang sudah diaktifkan (terpasang) dan gearbox yang terdaftar di
     // pengaturan yang dinilai. Perangkat baru yang belum diaktifkan tidak memicu alarm.
+    // Gearbox yang DIMATIKAN ("enabled": false, mis. PT100-nya belum terpasang) juga tidak dinilai:
+    // tidak ada alarm fault/suhu/offline, dan alarm yang sudah ada selesai (lihat dropUnmonitored).
     isMonitored(craneId, gbKey) {
         const crane = AlarmRules.findCrane(this.config, craneId);
-        return !!crane && crane.installed === true && crane.gearboxes.some(g => g.key === gbKey);
+        return !!crane && crane.installed === true && crane.gearboxes.some(g => g.key === gbKey && g.enabled !== false);
     }
 
     // Setelah pengaturan berubah (mis. crane dinonaktifkan / gearbox dihapus):
@@ -245,10 +265,12 @@ class AlarmEngine extends EventEmitter {
 
     // ESP32 mengabarkan dirinya putus (Last Will dari broker): semua gearbox crane
     // itu langsung offline, tanpa menunggu offlineMinutes.
-    deviceOffline(craneId, nowMs = Date.now()) {
+    // gbKeys (opsional): hanya motor yang terpasang di ESP32 yang putus itu. Crane dengan beberapa
+    // ESP32: Last Will dari ESP tambahan tidak boleh ikut menandai motor di ESP utama offline.
+    deviceOffline(craneId, nowMs = Date.now(), gbKeys = null) {
         this.gearboxes.forEach((gb, key) => {
             const [cId, gbKey] = key.split('/');
-            if (cId !== craneId || this.active.has(`${key}/offline`) || !this.isMonitored(cId, gbKey)) return;
+            if (cId !== craneId || (gbKeys && !gbKeys.includes(gbKey)) || this.active.has(`${key}/offline`) || !this.isMonitored(cId, gbKey)) return;
             const limits = AlarmRules.getLimits(this.config, cId, gbKey);
             this.raise(cId, gbKey, 'offline', 'warning', { lastSeen: gb.lastSeen || nowMs, limit: limits.offlineMinutes, reason: 'lwt' });
         });
