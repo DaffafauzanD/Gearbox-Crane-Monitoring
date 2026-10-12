@@ -19,6 +19,10 @@
 // baru yang ditambahkan. Untuk ganti password satu user (mis. ESP32 hilang):
 //     npm run setup-mqtt -- --reset crane-01
 //
+// ESP32 TAMBAHAN di crane yang sama (NODE_ID 2, 3, ... di config.h) login dengan ID
+// perangkatnya sendiri, mis. "crane-01_2". Tambahkan sekali (bisa beberapa --add):
+//     npm run setup-mqtt -- --add crane-01_2
+//
 // Setelah menjalankan ini, restart Mosquitto (atau npm run service) supaya
 // password baru terbaca.
 
@@ -60,6 +64,15 @@ if (fs.existsSync(CRED_FILE)) {
     }
 }
 
+// ESP32 tambahan: --add crane-01_2 (boleh diulang). Yang sudah pernah ditambahkan tetap ada.
+const { parseDeviceId } = require(path.join(ROOT, 'alarm_rules.js'));
+const extraIds = process.argv.flatMap((a, i) => a === '--add' && process.argv[i + 1] ? [process.argv[i + 1]] : []);
+extraIds.forEach(id => {
+    const p = parseDeviceId(id);
+    if (!p || p.node === 1) fail(`"${id}" bukan ID ESP tambahan. Formatnya <id-crane>_<node>, mis. crane-01_2.`);
+    if (!craneIds.includes(p.craneId)) fail(`Crane "${p.craneId}" tidak ada di config/settings.json.`);
+});
+
 const resetIdx = process.argv.indexOf('--reset');
 const resetUser = resetIdx > 0 ? process.argv[resetIdx + 1] : null;
 if (resetUser) {
@@ -69,7 +82,7 @@ if (resetUser) {
 
 const newPassword = () => crypto.randomBytes(12).toString('base64url'); // 16 karakter acak
 const added = [];
-['logger', 'web', 'dashboard', ...craneIds].forEach(user => {
+['logger', 'web', 'dashboard', ...craneIds, ...extraIds].forEach(user => {
     if (!creds[user]) {
         creds[user] = newPassword();
         added.push(user);

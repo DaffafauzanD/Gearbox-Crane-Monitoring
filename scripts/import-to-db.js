@@ -2,7 +2,7 @@
 // IMPORT DATA LAMA KE DATABASE
 // ============================================================
 // Membangun ulang data/monitoring.db dari arsip yang sudah ada:
-//   logs/*.csv            -> ringkasan per menit & per jam
+//   logs/*.csv, *.csv.gz  -> ringkasan per menit & per jam (yang lama dikompres oleh logger)
 //   alarms/history.jsonl  -> kejadian alarm
 //
 // Jalankan SEKALI setelah update ke versi yang pakai database, atau kapan pun
@@ -14,6 +14,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const AlarmRules = require('../alarm_rules');
 const { openDb, upsertSql, sensorIdGetter, alarmEventWriter, MINUTE_MS, HOUR_MS, DAY_MS, MINUTE_RETENTION_DAYS } = require('../db');
 
@@ -21,14 +22,7 @@ const ROOT = path.join(__dirname, '..');
 const LOG_DIR = path.join(ROOT, 'logs');
 const HISTORY_FILE = path.join(ROOT, 'alarms', 'history.jsonl');
 
-function isProcessAlive(pid) {
-    try {
-        process.kill(pid, 0);
-        return true;
-    } catch (e) {
-        return e.code === 'EPERM';
-    }
-}
+const { isProcessAlive } = require('../common');
 
 for (const lock of ['logger.lock', 'run-all.lock']) {
     const file = path.join(ROOT, lock);
@@ -52,7 +46,7 @@ const minuteCutoff = Date.now() - MINUTE_RETENTION_DAYS * DAY_MS;
 // timestamp yang sama hanya dihitung sekali.
 const groups = new Map();
 (fs.existsSync(LOG_DIR) ? fs.readdirSync(LOG_DIR) : []).forEach(name => {
-    const m = name.match(/^(.+)_(gb\d+)_\d{4}-\d{2}-\d{2}\.csv$/);
+    const m = name.match(/^(.+)_([a-z0-9]+)_\d{4}-\d{2}-\d{2}\.csv(?:\.gz)?$/);
     if (!m) return;
     const key = `${m[1]}/${m[2]}`;
     if (!groups.has(key)) groups.set(key, []);
@@ -71,7 +65,8 @@ try {
         const buckets = new Map(); // "m|ts" / "h|ts" -> bucket
 
         files.forEach(name => {
-            fs.readFileSync(path.join(LOG_DIR, name), 'utf-8').split(/\r?\n/).forEach(line => {
+            const raw = fs.readFileSync(path.join(LOG_DIR, name));
+            (name.endsWith('.gz') ? zlib.gunzipSync(raw) : raw).toString('utf-8').split(/\r?\n/).forEach(line => {
                 const comma = line.indexOf(',');
                 if (comma < 0) return;
                 const ms = Date.parse(line.slice(0, comma));
